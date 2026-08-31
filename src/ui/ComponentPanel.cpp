@@ -9,6 +9,9 @@
 #include "visu/App.hpp"
 #include "visu/ui/ShowCodePanel.hpp"
 
+#include "visu/ui/CreateComponentModal.hpp"
+#include "visu/helpers/ComponentGen.hpp"
+
 namespace fs = std::filesystem;
 
 void ComponentPanel::draw(Project *project)
@@ -20,9 +23,31 @@ void ComponentPanel::draw(Project *project)
     }
 
     fs::path dir = project->componentsDir();
+
+    if (ImGui::Button("Create new Component"))
+    {
+        App &app = App::getInstance();
+        // Genere <projet>/Components/<Nom>.hpp (struct + Reflect), regenere
+        // RegisterComponents, puis ouvre le .hpp dans VS Code.
+        app.openModal(std::make_unique<CreateComponentModal>([dir](ComponentInfoCreation _data)
+                                                             {
+                                                                 fs::path hpp = componentgen::createComponent(dir, _data);
+                                                                 if (!hpp.empty())
+                                                                     openInVSCode(hpp);
+                                                             }));
+    }
+
+    ImGui::Separator();
+
     if (fs::exists(dir))
     {
-        fs::path clicked = drawFolderTree(dir, openInDefaultApp, {".hpp"});
+        // Double-click sur un composant -> ouvre son .hpp dans VS Code.
+        fs::path clicked = drawFolderTree(
+            dir,
+            [](const fs::path &p)
+            { openInVSCode(p); },
+            {".hpp"});
+
         if (!clicked.empty())
         {
             App &app = App::getInstance();
@@ -31,7 +56,6 @@ void ComponentPanel::draw(Project *project)
                 unlocked->changePath(clicked);
             else
             {
-
                 std::unique_ptr<Panel> panel = std::make_unique<ShowCodePanel>(clicked);
 
                 if (ShowCodePanel *existing = app.getPanel<ShowCodePanel>(false))
@@ -48,5 +72,5 @@ void ComponentPanel::draw(Project *project)
         }
     }
     else
-        ImGui::Text("Dossier introuvable : %s", dir.string().c_str());
+        ImGui::TextDisabled("(aucun composant -- cree-en un)");
 }

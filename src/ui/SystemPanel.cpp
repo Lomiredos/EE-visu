@@ -11,6 +11,7 @@
 
 #include "imgui.h"
 #include "visu/helpers/OpenExternal.hpp"
+#include "visu/helpers/SystemGen.hpp"
 
 namespace fs = std::filesystem;
 
@@ -31,13 +32,28 @@ void SystemPanel::draw(Project *project)
         if (ImGui::Button("Create new System"))
         {
             App &app = App::getInstance();
-            app.openModal(std::make_unique<CreateSystemModal>([this](SystemInfoCreation _data)
-                                                              { std::cout << "sys name :" << _data.name << std::endl; }));
+            // Genere le trio (.json/.hpp/.cpp) dans <projet>/systems/, rebranche
+            // le registre, puis ouvre le stub .cpp dans VS Code.
+            app.openModal(std::make_unique<CreateSystemModal>([dir](SystemInfoCreation _data)
+                                                              {
+                                                                  fs::path cpp = systemgen::createSystem(dir, _data);
+                                                                  if (!cpp.empty())
+                                                                      openInVSCode(cpp);
+                                                              }));
         }
 
         ImGui::Separator();
 
-        fs::path clicked = drawFolderTree(dir, openInDefaultApp, {".hpp"});
+        // Double-click sur un systeme -> ouvre son .cpp dans VS Code.
+        fs::path clicked = drawFolderTree(
+            dir,
+            [](const fs::path &p)
+            {
+                fs::path cpp = p;
+                cpp.replace_extension(".cpp");
+                openInVSCode(fs::exists(cpp) ? cpp : p);
+            },
+            {".hpp"});
         if (!clicked.empty())
         {
             App &app = App::getInstance();

@@ -26,6 +26,21 @@
                 {
                     "name": "rotZ",
                     "type": "float"
+                },
+                {
+                    "name": "scaleX",
+                    "type": "float",
+                    "default": 1.0
+                },
+                {
+                    "name": "scaleY",
+                    "type": "float",
+                    "default": 1.0
+                },
+                {
+                    "name": "scaleZ",
+                    "type": "float",
+                    "default": 1.0
                 }
             ]
         },
@@ -51,7 +66,8 @@
             "fields": [
                 {
                     "name": "radius",
-                    "type": "float"
+                    "type": "float",
+                    "default": 1.0
                 }
             ]
         },
@@ -60,15 +76,43 @@
             "fields": [
                 {
                     "name": "width",
-                    "type": "float"
+                    "type": "float",
+                    "default": 1.0
                 },
                 {
                     "name": "height",
-                    "type": "float"
+                    "type": "float",
+                    "default": 1.0
                 },
                 {
                     "name": "depth",
-                    "type": "float"
+                    "type": "float",
+                    "default": 1.0
+                }
+            ]
+        },
+        {
+            "name": "CapsuleComponent",
+            "fields": [
+                {
+                    "name": "radius",
+                    "type": "float",
+                    "default": 0.5
+                },
+                {
+                    "name": "height",
+                    "type": "float",
+                    "default": 1.0
+                }
+            ]
+        },
+        {
+            "name": "MeshComponent",
+            "fields": [
+                {
+                    "name": "path",
+                    "type": "string",
+                    "default": ""
                 }
             ]
         }

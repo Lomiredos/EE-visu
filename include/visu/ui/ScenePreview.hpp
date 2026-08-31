@@ -2,6 +2,7 @@
 
 #include "visu/core/SceneInfo.hpp"
 #include "visu/render/GLRenderer.hpp"
+#include "math/Vector3.hpp"
 
 // Host editeur de la preview 3D.
 //
@@ -36,7 +37,7 @@ private:
     ee::render::GLRenderer m_gl;
 
     // Camera : position + orientation (yaw autour de Y, pitch haut/bas).
-    float m_camPos[3] = {6.0f, 5.0f, 6.0f};
+    ee::math::Vector3<float> m_camPos = {6.0f, 5.0f, 6.0f};
     float m_yaw = 0.0f;
     float m_pitch = 0.0f;
     bool m_camInit = false;

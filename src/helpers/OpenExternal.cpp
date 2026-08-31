@@ -13,6 +13,15 @@ void openInDefaultApp(const std::filesystem::path &path)
                   nullptr, nullptr, SW_SHOWNORMAL);
 }
 
+void openInVSCode(const std::filesystem::path &path)
+{
+    // `code` est un .cmd du PATH : on le lance avec le fichier en argument.
+    // Si VS Code n'est pas installe / pas dans le PATH, l'appel echoue en
+    // silence (rien ne s'ouvre).
+    ShellExecuteW(nullptr, L"open", L"code", path.wstring().c_str(),
+                  nullptr, SW_SHOWNORMAL);
+}
+
 void launchProgram(const std::filesystem::path &exePath)
 {
     std::filesystem::path dir = exePath.parent_path();

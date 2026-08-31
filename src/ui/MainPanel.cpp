@@ -381,19 +381,45 @@ void MainPanel::draw(Project *project)
                     float vmat[16], pmat[16];
                     m_preview.getViewMatrix(vmat);
                     m_preview.getProjMatrix(pmat);
-                    float model[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0,
-                                       gv("x"), gv("y"), gv("z"), 1};
 
+                    // Compose la matrice modele depuis position, rotation ET echelle
+                    // courantes : le gizmo part de l'etat reel de l'entite.
+                    float scx = gv("scaleX"), scy = gv("scaleY"), scz = gv("scaleZ");
+                    if (scx <= 0.0f) // entites anterieures aux champs scale
+                        scx = 1.0f;
+                    if (scy <= 0.0f)
+                        scy = 1.0f;
+                    if (scz <= 0.0f)
+                        scz = 1.0f;
+                    float translation[3] = {gv("x"), gv("y"), gv("z")};
+                    float rotation[3] = {gv("rotX"), gv("rotY"), gv("rotZ")};
+                    float scale[3] = {scx, scy, scz};
+                    float model[16];
+                    ImGuizmo::RecomposeMatrixFromComponents(translation, rotation, scale, model);
+
+                    ImGuizmo::OPERATION op = ImGuizmo::TRANSLATE;
+                    if (m_gizmoMode == 1)
+                        op = ImGuizmo::ROTATE;
+                    else if (m_gizmoMode == 2)
+                        op = ImGuizmo::SCALE;
                     ImGuizmo::SetOrthographic(false);
                     ImGuizmo::SetDrawlist();
                     ImGuizmo::SetRect(imgMin.x, imgMin.y, static_cast<float>(pw), static_cast<float>(ph));
-                    ImGuizmo::Manipulate(vmat, pmat, ImGuizmo::TRANSLATE, ImGuizmo::WORLD, model);
+                    ImGuizmo::Manipulate(vmat, pmat, op, ImGuizmo::WORLD, model);
 
                     if (ImGuizmo::IsUsing())
                     {
-                        tf->values["x"] = model[12];
-                        tf->values["y"] = model[13];
-                        tf->values["z"] = model[14];
+                        // Redecompose : position + rotation + echelle uniforme.
+                        ImGuizmo::DecomposeMatrixToComponents(model, translation, rotation, scale);
+                        tf->values["x"] = translation[0];
+                        tf->values["y"] = translation[1];
+                        tf->values["z"] = translation[2];
+                        tf->values["rotX"] = rotation[0];
+                        tf->values["rotY"] = rotation[1];
+                        tf->values["rotZ"] = rotation[2];
+                        tf->values["scaleX"] = scale[0];
+                        tf->values["scaleY"] = scale[1];
+                        tf->values["scaleZ"] = scale[2];
                     }
                     gizmoActive = ImGuizmo::IsOver() || ImGuizmo::IsUsing();
                 }
@@ -485,7 +511,16 @@ void MainPanel::draw(Project *project)
         }
         else
         {
-            ImGui::TextDisabled("Double-clic pour naviguer dans la scene");
+            if (ImGui::RadioButton("Deplacer", m_gizmoMode == 0))
+                m_gizmoMode = 0;
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Tourner", m_gizmoMode == 1))
+                m_gizmoMode = 1;
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Redim.", m_gizmoMode == 2))
+                m_gizmoMode = 2;
+            ImGui::SameLine();
+            ImGui::TextDisabled("| Double-clic pour naviguer");
         }
     }
     ImGui::EndChild();

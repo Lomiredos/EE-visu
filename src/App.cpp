@@ -1,6 +1,7 @@
 #include "visu/App.hpp"
 
 #include "visu/core/Project.hpp"
+#include "visu/core/MeshStore.hpp"
 #include "visu/ui/Panel.hpp"
 #include "visu/ui/SystemPanel.hpp"
 #include "visu/ui/ComponentPanel.hpp"
@@ -25,14 +26,13 @@ static void glfw_error_callback(int error, const char *description)
 {
     std::fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
+
 static void buildDefaultLayout(ImGuiID dockspace_id, const ImVec2 &size)
 {
     ImGui::DockBuilderRemoveNode(dockspace_id);
     ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dockspace_id, size);
 
-    // Hierarchy + Inspector sont DANS le panel Main (3 colonnes) -> pas de
-    // fenetres separees. Main/System/Component sont de simples onglets freres.
     ImGui::DockBuilderDockWindow("Main", dockspace_id);
     ImGui::DockBuilderDockWindow("System", dockspace_id);
     ImGui::DockBuilderDockWindow("Component", dockspace_id);
@@ -44,7 +44,6 @@ App::App() = default;
 
 App::~App()
 {
-    // Nettoyage symétrique de init() — uniquement si la fenêtre a été créée.
     if (m_window)
     {
         ImGui_ImplOpenGL3_Shutdown();
@@ -81,12 +80,10 @@ void App::flushPanel()
 
 bool App::init()
 {
-    // --- Init GLFW ---
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
         return false;
 
-    // OpenGL 3.3 Core Profile
     const char *glsl_version = "#version 330";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -134,7 +131,8 @@ bool App::init()
 void App::openProject(const std::filesystem::path &path)
 {
     m_project = std::make_unique<Project>(path);
-    m_sceneLoaded = false; // rechargera la scene du nouveau projet
+    ee::core::setMeshBaseDir(m_project->root()); // chemins .obj relatifs au projet
+    m_sceneLoaded = false;
     m_selectedEntity = -1;
 }
 
@@ -218,7 +216,6 @@ void App::run()
     {
         glfwPollEvents();
 
-        // Nouvelle frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -248,7 +245,6 @@ void App::run()
 
         flushPanel();
 
-        // Rendu
         ImGui::Render();
         int display_w, display_h;
         glfwGetFramebufferSize(m_window, &display_w, &display_h);
@@ -257,7 +253,6 @@ void App::run()
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-        // Gestion des fenêtres détachées (viewports)
         ImGuiIO &io = ImGui::GetIO();
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
         {

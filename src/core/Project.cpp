@@ -19,12 +19,14 @@ std::string Project::name() const
 
 fs::path Project::systemsDir() const
 {
-    return m_root / "include" / m_root.filename() / "Systems";
+    // Un dossier par projet : trio .hpp/.cpp/.json par systeme, cote a cote.
+    // Meme dossier que le runtime lit (loadSystemsInDir).
+    return m_root / "systems";
 }
 
 fs::path Project::componentsDir() const
 {
-    return m_root / "include" / m_root.filename() / "Components";
+    return m_root / "Components";
 }
 
 fs::path Project::componentsCatalog() const
