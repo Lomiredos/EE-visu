@@ -8,32 +8,6 @@ namespace fs = std::filesystem;
 
 #include <iostream>
 
-constexpr const char *enginePath = "assets/Components.json";
-
-std::vector<std::string> getAvaibleComponents(const fs::path &_otherPath)
-{
-    std::vector<std::string> names = getName(enginePath);
-    if (_otherPath != "" && fs::exists(_otherPath) && _otherPath.extension() == ".json")
-    {
-        std::vector<std::string> externalName = getName(_otherPath);
-        names.insert(names.end(), std::make_move_iterator(externalName.begin()), std::make_move_iterator(externalName.end()));
-    }
-
-    return names;
-}
-
-std::vector<std::string> getName(const fs::path &_filePath)
-{
-    std::ifstream f(_filePath);
-    json data = json::parse(f);
-    std::vector<std::string> names;
-    for (const auto &comp : data["components"])
-    {
-        names.push_back(comp["name"]);
-    }
-    return names;
-}
-
 std::map<std::string, std::map<std::string, FieldValue>> getComponentDefaults(const fs::path &_catalog)
 {
     std::map<std::string, std::map<std::string, FieldValue>> out;

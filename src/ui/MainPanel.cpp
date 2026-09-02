@@ -5,6 +5,7 @@
 #include "visu/App.hpp"
 #include "visu/helpers/OpenExternal.hpp"
 #include "visu/helpers/ComponentGetter.hpp"
+#include "visu/helpers/BuildProject.hpp"
 
 #include "imgui.h"
 #include <imgui_stdlib.h> // ImGui::InputText(const char*, std::string*)
@@ -34,18 +35,8 @@ static float asFloat(const FieldValue &v, float def = 0.0f)
     return def; // string -> non numerique
 }
 
-// Demande de suppression de composant en attente de confirmation.
-// (partage entre l'Inspector et le modal dessine au niveau de Main)
-static int s_deleteEntity = -1;
-static int s_deleteComp = -1;
-static bool s_openDeleteModal = false;
-
-// Demande de suppression d'ENTITE en attente de confirmation (flux distinct).
-static int s_entityToDelete = -1;
-static bool s_openDeleteEntityModal = false;
-
 // --- Colonne gauche : liste des entites ---
-static void drawHierarchy(App &app)
+static void drawHierarchy(App &app, MainPanel::DeletionState &del)
 {
     SceneInfo &scene = app.sceneData();
     int &selected = app.selectedEntity();
@@ -54,10 +45,16 @@ static void drawHierarchy(App &app)
     {
         scene.entities.push_back({}); // nom vide -> affiche "Entity <index>"
         selected = static_cast<int>(scene.entities.size()) - 1;
+        app.markSceneDirty();
     }
     ImGui::SameLine();
     if (ImGui::Button("Save"))
         app.saveCurrentScene();
+    if (app.sceneDirty())
+    {
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.2f, 1.0f), "* non sauvegarde");
+    }
 
     ImGui::Separator();
 
@@ -80,14 +77,14 @@ static void drawHierarchy(App &app)
         if (ImGui::SmallButton(icon.c_str()))
         {
 
-            s_entityToDelete = i; // memorise QUELLE entite avant d'ouvrir le modal
-            s_openDeleteEntityModal = true;
+            del.entityToDelete = i; // memorise QUELLE entite avant d'ouvrir le modal
+            del.openDeleteEntityModal = true;
         }
     }
 }
 
 // --- Colonne droite : composants + valeurs de l'entite selectionnee ---
-static void drawInspector(App &app, Project *project)
+static void drawInspector(App &app, Project *project, MainPanel::DeletionState &del)
 {
     SceneInfo &scene = app.sceneData();
     int selected = app.selectedEntity();
@@ -112,6 +109,8 @@ static void drawInspector(App &app, Project *project)
             ImGui::SetKeyboardFocusHere();
         if (ImGui::InputText("##rename", &ent.name, ImGuiInputTextFlags_EnterReturnsTrue))
             ImGui::CloseCurrentPopup();
+        if (ImGui::IsItemEdited())
+            app.markSceneDirty();
         ImGui::SameLine();
         if (ImGui::Button("OK"))
             ImGui::CloseCurrentPopup();
@@ -135,9 +134,9 @@ static void drawInspector(App &app, Project *project)
 
         if (ImGui::SmallButton(icon))
         {
-            s_deleteEntity = selected;
-            s_deleteComp = c;
-            s_openDeleteModal = true;
+            del.deleteEntity = selected;
+            del.deleteComp = c;
+            del.openDeleteModal = true;
         }
 
         if (open)
@@ -150,14 +149,17 @@ static void drawInspector(App &app, Project *project)
                 // DragFloat/DragInt = scrub facon Unity ; Checkbox pour bool ;
                 // InputText (via imgui_stdlib) pour les chaines.
                 const char *lbl = kv.first.c_str();
+                bool edited = false;
                 if (auto p = std::get_if<float>(&kv.second))
-                    ImGui::DragFloat(lbl, p, 0.05f);
+                    edited = ImGui::DragFloat(lbl, p, 0.05f);
                 else if (auto p = std::get_if<int>(&kv.second))
-                    ImGui::DragInt(lbl, p);
+                    edited = ImGui::DragInt(lbl, p);
                 else if (auto p = std::get_if<bool>(&kv.second))
-                    ImGui::Checkbox(lbl, p);
+                    edited = ImGui::Checkbox(lbl, p);
                 else if (auto p = std::get_if<std::string>(&kv.second))
-                    ImGui::InputText(lbl, p);
+                    edited = ImGui::InputText(lbl, p);
+                if (edited)
+                    app.markSceneDirty();
             }
         }
 
@@ -191,6 +193,7 @@ static void drawInspector(App &app, Project *project)
                 ci.name = cname;
                 ci.values = entry.second;
                 ent.components.push_back(std::move(ci));
+                app.markSceneDirty();
             }
         }
         if (!any)
@@ -200,12 +203,12 @@ static void drawInspector(App &app, Project *project)
     }
 }
 
-static void drawDeleteConfirm(App &app)
+static void drawDeleteConfirm(App &app, MainPanel::DeletionState &del)
 {
-    if (s_openDeleteModal)
+    if (del.openDeleteModal)
     {
         ImGui::OpenPopup("Supprimer le composant ?");
-        s_openDeleteModal = false;
+        del.openDeleteModal = false;
     }
 
     if (ImGui::BeginPopupModal("Supprimer le composant ?", nullptr,
@@ -213,13 +216,13 @@ static void drawDeleteConfirm(App &app)
     {
         SceneInfo &scene = app.sceneData();
         bool valid =
-            s_deleteEntity >= 0 && s_deleteEntity < static_cast<int>(scene.entities.size()) &&
-            s_deleteComp >= 0 &&
-            s_deleteComp < static_cast<int>(scene.entities[s_deleteEntity].components.size());
+            del.deleteEntity >= 0 && del.deleteEntity < static_cast<int>(scene.entities.size()) &&
+            del.deleteComp >= 0 &&
+            del.deleteComp < static_cast<int>(scene.entities[del.deleteEntity].components.size());
 
         if (valid)
             ImGui::Text("Supprimer \"%s\" ?",
-                        scene.entities[s_deleteEntity].components[s_deleteComp].name.c_str());
+                        scene.entities[del.deleteEntity].components[del.deleteComp].name.c_str());
         else
             ImGui::TextUnformatted("Supprimer ce composant ?");
 
@@ -229,41 +232,42 @@ static void drawDeleteConfirm(App &app)
         {
             if (valid)
             {
-                auto &comps = scene.entities[s_deleteEntity].components;
-                comps.erase(comps.begin() + s_deleteComp);
+                auto &comps = scene.entities[del.deleteEntity].components;
+                comps.erase(comps.begin() + del.deleteComp);
+                app.markSceneDirty();
             }
-            s_deleteEntity = s_deleteComp = -1;
+            del.deleteEntity = del.deleteComp = -1;
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
         if (ImGui::Button("Annuler"))
         {
-            s_deleteEntity = s_deleteComp = -1;
+            del.deleteEntity = del.deleteComp = -1;
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
     }
 }
 
-static void drawDeleteEntityConfirm(App &app)
+static void drawDeleteEntityConfirm(App &app, MainPanel::DeletionState &del)
 {
-    if (s_openDeleteEntityModal)
+    if (del.openDeleteEntityModal)
     {
         ImGui::OpenPopup("Supprimer l'entite ?");
-        s_openDeleteEntityModal = false;
+        del.openDeleteEntityModal = false;
     }
 
     if (ImGui::BeginPopupModal("Supprimer l'entite ?", nullptr,
                                ImGuiWindowFlags_AlwaysAutoResize))
     {
         SceneInfo &scene = app.sceneData();
-        bool valid = s_entityToDelete >= 0 &&
-                     s_entityToDelete < static_cast<int>(scene.entities.size());
+        bool valid = del.entityToDelete >= 0 &&
+                     del.entityToDelete < static_cast<int>(scene.entities.size());
 
         if (valid)
         {
-            const std::string &nm = scene.entities[s_entityToDelete].name;
-            std::string display = nm.empty() ? ("Entity " + std::to_string(s_entityToDelete)) : nm;
+            const std::string &nm = scene.entities[del.entityToDelete].name;
+            std::string display = nm.empty() ? ("Entity " + std::to_string(del.entityToDelete)) : nm;
             ImGui::Text("Supprimer \"%s\" et tous ses composants ?", display.c_str());
         }
         else
@@ -275,22 +279,23 @@ static void drawDeleteEntityConfirm(App &app)
         {
             if (valid)
             {
-                scene.entities.erase(scene.entities.begin() + s_entityToDelete);
+                scene.entities.erase(scene.entities.begin() + del.entityToDelete);
 
                 // Rattrape la selection : supprimer decale les indices suivants.
                 int &sel = app.selectedEntity();
-                if (sel == s_entityToDelete)
+                if (sel == del.entityToDelete)
                     sel = -1; // celle qu'on regardait n'existe plus
-                else if (sel > s_entityToDelete)
+                else if (sel > del.entityToDelete)
                     --sel; // tout ce qui suivait recule d'un cran
+                app.markSceneDirty();
             }
-            s_entityToDelete = -1;
+            del.entityToDelete = -1;
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
         if (ImGui::Button("Annuler"))
         {
-            s_entityToDelete = -1;
+            del.entityToDelete = -1;
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -316,7 +321,7 @@ void MainPanel::draw(Project *project)
 
     // Colonne gauche : Hierarchy
     ImGui::BeginChild("HierarchyRegion", ImVec2(leftW, 0), true);
-    drawHierarchy(app);
+    drawHierarchy(app, m_del);
     ImGui::EndChild();
 
     ImGui::SameLine();
@@ -326,17 +331,55 @@ void MainPanel::draw(Project *project)
     ImGui::Text("Projet ouvert : %s", project->name().c_str());
     ImGui::Separator();
     {
+        // Build : compile le projet, montre les erreurs -> boucle sans quitter.
+        if (ImGui::Button("Build"))
+        {
+            projectbuild::BuildResult r = projectbuild::build(project->root());
+            if (r.ok)
+                m_buildStatus = "Build OK.";
+            else
+            {
+                m_buildStatus = "Echec du build.";
+                m_buildLog = r.log;
+                m_openBuildErrorPopup = true;
+            }
+        }
+        ImGui::SameLine();
+
         std::filesystem::path exe = project->executablePath();
         bool exists = std::filesystem::exists(exe);
-        if (ImGui::Button("Play") && exists)
+        if (!exists)
+            ImGui::BeginDisabled();
+        if (ImGui::Button("Play"))
         {
             app.saveCurrentScene(); // sauve les edits avant de lancer -> impact immediat
             launchProgram(exe);
         }
         if (!exists)
         {
+            ImGui::EndDisabled();
             ImGui::SameLine();
             ImGui::TextDisabled("(exe introuvable - build le projet)");
+        }
+
+        if (!m_buildStatus.empty())
+            ImGui::TextDisabled("%s", m_buildStatus.c_str());
+
+        // Popup d'erreur (bloquant) : sortie du compilo.
+        if (m_openBuildErrorPopup)
+        {
+            ImGui::OpenPopup("Erreur de build");
+            m_openBuildErrorPopup = false;
+        }
+        if (ImGui::BeginPopupModal("Erreur de build", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::TextUnformatted("Le build a echoue. Sortie :");
+            ImGui::BeginChild("buildlog", ImVec2(720, 320), true, ImGuiWindowFlags_HorizontalScrollbar);
+            ImGui::TextUnformatted(m_buildLog.c_str());
+            ImGui::EndChild();
+            if (ImGui::Button("Fermer"))
+                ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
         }
     }
 
@@ -420,6 +463,7 @@ void MainPanel::draw(Project *project)
                         tf->values["scaleX"] = scale[0];
                         tf->values["scaleY"] = scale[1];
                         tf->values["scaleZ"] = scale[2];
+                        app.markSceneDirty();
                     }
                     gizmoActive = ImGuizmo::IsOver() || ImGuizmo::IsUsing();
                 }
@@ -529,10 +573,10 @@ void MainPanel::draw(Project *project)
 
     // Colonne droite : Inspector
     ImGui::BeginChild("InspectorRegion", ImVec2(rightW, 0), true);
-    drawInspector(app, project);
+    drawInspector(app, project, m_del);
     ImGui::EndChild();
 
     // Modal de confirmation au niveau de Main (hors des children).
-    drawDeleteConfirm(app);
-    drawDeleteEntityConfirm(app);
+    drawDeleteConfirm(app, m_del);
+    drawDeleteEntityConfirm(app, m_del);
 }

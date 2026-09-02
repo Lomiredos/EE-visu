@@ -1,22 +1,20 @@
 #pragma once
 
-#include "visu/ui/CreateComponentModal.hpp" // ComponentInfoCreation
+#include "visu/ui/CreateComponentModal.hpp"
 
 #include <filesystem>
-
-// ---------------------------------------------------------------------------
-// Generation d'un composant dans le PROJET. Ecrit <projet>/<components>/<Nom>.hpp
-// (la struct C++ = la verite + sa specialisation Reflect), puis REGENERE
-// RegisterComponents.{hpp,cpp} en scannant le dossier. Au prochain build du jeu,
-// le POST_BUILD relance gen_components -> Components.json a jour.
-//
-// Symetrique de systemgen::createSystem. Un composant de donnees = .hpp seul
-// (pas de .cpp : la struct + Reflect sont inline).
-// ---------------------------------------------------------------------------
+#include <string>
 
 namespace componentgen
 {
-    // Renvoie le chemin du .hpp genere, ou vide si echec.
-    std::filesystem::path createComponent(const std::filesystem::path &_componentsDir,
-                                          const ComponentInfoCreation &_def);
+    // Resultat de creation : chemin du .hpp genere si succes (error vide),
+    // sinon path vide + message d'erreur (nom invalide, collision, ecriture KO).
+    struct CreateResult
+    {
+        std::filesystem::path path;
+        std::string error;
+    };
+
+    CreateResult createComponent(const std::filesystem::path &_componentsDir,
+                                 const ComponentInfoCreation &_def);
 }

@@ -14,9 +14,19 @@
 // dossier -> un systeme cree est automatiquement branche au registre du jeu.
 // ---------------------------------------------------------------------------
 
+#include <string>
+
 namespace systemgen
 {
-    // Renvoie le chemin du .cpp genere (a ouvrir), ou un chemin vide si echec.
-    std::filesystem::path createSystem(const std::filesystem::path &_systemsDir,
-                                       const SystemInfoCreation &_def);
+    // Resultat de creation : chemin du .cpp genere si succes (error vide),
+    // sinon path vide + message d'erreur (nom invalide, collision, ecriture KO).
+    struct CreateResult
+    {
+        std::filesystem::path path;
+        std::string error;
+    };
+
+    // Renvoie le .cpp genere (a ouvrir) ou un resultat en erreur.
+    CreateResult createSystem(const std::filesystem::path &_systemsDir,
+                              const SystemInfoCreation &_def);
 }

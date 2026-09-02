@@ -27,6 +27,14 @@ static void glfw_error_callback(int error, const char *description)
     std::fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
+// Bouton X de la fenetre : on VETO la fermeture immediate et on delegue a
+// App::requestQuit (qui confirme si des edits ne sont pas sauvegardes).
+static void glfw_window_close_callback(GLFWwindow *window)
+{
+    glfwSetWindowShouldClose(window, GLFW_FALSE);
+    App::getInstance().requestQuit();
+}
+
 static void buildDefaultLayout(ImGuiID dockspace_id, const ImVec2 &size)
 {
     ImGui::DockBuilderRemoveNode(dockspace_id);
@@ -97,6 +105,7 @@ bool App::init()
     }
     glfwMakeContextCurrent(m_window);
     glfwSwapInterval(1); // v-sync
+    glfwSetWindowCloseCallback(m_window, glfw_window_close_callback);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -134,6 +143,7 @@ void App::openProject(const std::filesystem::path &path)
     ee::core::setMeshBaseDir(m_project->root()); // chemins .obj relatifs au projet
     m_sceneLoaded = false;
     m_selectedEntity = -1;
+    m_sceneDirty = false;
 }
 
 void App::loadSceneIfNeeded()
@@ -147,12 +157,59 @@ void App::loadSceneIfNeeded()
         if (auto loaded = loadScene(m_project->sceneFile()))
             m_scene = *loaded;
     m_sceneLoaded = true;
+    m_sceneDirty = false; // etat fraichement charge = propre
 }
 
 void App::saveCurrentScene()
 {
     if (m_project && m_project->isValid())
+    {
         saveScene(m_scene, m_project->sceneFile());
+        m_sceneDirty = false;
+    }
+}
+
+void App::requestQuit()
+{
+    if (m_sceneDirty && !m_quitConfirmed)
+        m_showQuitModal = true; // il reste des edits -> demander confirmation
+    else
+        glfwSetWindowShouldClose(m_window, GLFW_TRUE);
+}
+
+void App::drawQuitModal()
+{
+    if (m_showQuitModal)
+    {
+        ImGui::OpenPopup("Quitter ?");
+        m_showQuitModal = false;
+    }
+
+    if (ImGui::BeginPopupModal("Quitter ?", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::TextUnformatted("La scene a des modifications non sauvegardees.");
+        ImGui::Spacing();
+
+        if (ImGui::Button("Sauvegarder et quitter"))
+        {
+            saveCurrentScene();
+            m_quitConfirmed = true;
+            glfwSetWindowShouldClose(m_window, GLFW_TRUE);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Quitter sans sauvegarder"))
+        {
+            m_quitConfirmed = true;
+            glfwSetWindowShouldClose(m_window, GLFW_TRUE);
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Annuler"))
+            ImGui::CloseCurrentPopup();
+
+        ImGui::EndPopup();
+    }
 }
 
 void App::requestPanel(std::unique_ptr<Panel> _panel)
@@ -173,7 +230,7 @@ void App::drawMenuBar()
         if (ImGui::BeginMenu("Fichier"))
         {
             if (ImGui::MenuItem("Quitter"))
-                glfwSetWindowShouldClose(m_window, true);
+                requestQuit();
             ImGui::EndMenu();
         }
 
@@ -242,6 +299,8 @@ void App::run()
             if (finished)
                 m_currentModal.reset();
         }
+
+        drawQuitModal();
 
         flushPanel();
 

@@ -9,10 +9,6 @@
 
 namespace fs = std::filesystem;
 
-std::vector<std::string> getAvaibleComponents(const fs::path &_otherPath = "");
-
-std::vector<std::string> getName(const fs::path &_filePath);
-
 // Lit un catalogue Components.json et renvoie, par composant, ses champs avec
 // leur valeur par defaut, TYPEE selon le "type" declare dans le catalogue :
 // { "TransformComponent": { "x": 0.0f, ... }, "TagComponent": { "name": "" } }

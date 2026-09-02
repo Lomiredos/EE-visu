@@ -23,7 +23,8 @@ private:
     SystemInfoCreation buildResult();
 
 public:
-    CreateSystemModal(std::function<void(SystemInfoCreation)> _cb);
+    CreateSystemModal(std::vector<std::string> _components,
+                      std::function<void(SystemInfoCreation)> _cb);
     const char *Id() const override { return "CreateSystemModal"; }
     bool Draw() override;
 };

@@ -12,6 +12,7 @@
 #include "imgui.h"
 #include "visu/helpers/OpenExternal.hpp"
 #include "visu/helpers/SystemGen.hpp"
+#include "visu/helpers/ComponentGetter.hpp"
 
 namespace fs = std::filesystem;
 
@@ -31,16 +32,31 @@ void SystemPanel::draw(Project *project)
 
         if (ImGui::Button("Create new System"))
         {
+            // Liste des composants = union moteur + projet, MEME source que
+            // l'inspecteur (getAllComponentDefaults). Fini la divergence.
+            std::vector<std::string> comps;
+            for (const auto &kv : getAllComponentDefaults(project->componentsCatalog()))
+                comps.push_back(kv.first);
+
             App &app = App::getInstance();
             // Genere le trio (.json/.hpp/.cpp) dans <projet>/systems/, rebranche
             // le registre, puis ouvre le stub .cpp dans VS Code.
-            app.openModal(std::make_unique<CreateSystemModal>([dir](SystemInfoCreation _data)
+            app.openModal(std::make_unique<CreateSystemModal>(std::move(comps),
+                                                              [dir, this](SystemInfoCreation _data)
                                                               {
-                                                                  fs::path cpp = systemgen::createSystem(dir, _data);
-                                                                  if (!cpp.empty())
-                                                                      openInVSCode(cpp);
+                                                                  systemgen::CreateResult r = systemgen::createSystem(dir, _data);
+                                                                  if (r.error.empty())
+                                                                  {
+                                                                      m_status = "Systeme cree.";
+                                                                      openInVSCode(r.path);
+                                                                  }
+                                                                  else
+                                                                      m_status = r.error;
                                                               }));
         }
+
+        if (!m_status.empty())
+            ImGui::TextDisabled("%s", m_status.c_str());
 
         ImGui::Separator();
 

@@ -25,6 +25,8 @@ add_executable(eliott-visu
     src/ui/CreateComponentModal.cpp
     src/helpers/ComponentGetter.cpp
     src/helpers/ComponentGen.cpp
+    src/helpers/GenerateCatalog.cpp
+    src/helpers/BuildProject.cpp
     src/ui/ScenePreview.cpp
     extern/ImGuiColorTextEdit/TextEditor.cpp
     extern/ImGuiColorTextEdit/LanguageDefinitions.cpp

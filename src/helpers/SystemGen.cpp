@@ -1,9 +1,11 @@
 #include "visu/helpers/SystemGen.hpp"
 
-#include "visu/core/SystemInfo.hpp" // loadSystemInfo (pour scanner les .json)
+#include "visu/helpers/NameValidation.hpp"
+#include "visu/core/SystemInfo.hpp"
 
 #include <nlohmann/json.hpp>
 
+#include <cctype>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -13,33 +15,36 @@ namespace fs = std::filesystem;
 
 namespace
 {
-    // "A", "B", "C" pour un initializer-list C++.
-    std::string quotedList(const std::vector<std::string> &_names)
+    // "TransformComponent" -> "transform" : nom de variable lisible pour les
+    // exemples d'acces typé dans le stub.
+    std::string varNameFor(const std::string &_comp)
     {
-        std::string out;
-        for (size_t i = 0; i < _names.size(); ++i)
-        {
-            if (i)
-                out += ", ";
-            out += "\"" + _names[i] + "\"";
-        }
-        return out;
+        std::string s = _comp;
+        const std::string suffix = "Component";
+        if (s.size() > suffix.size() &&
+            s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0)
+            s = s.substr(0, s.size() - suffix.size());
+        if (!s.empty())
+            s[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(s[0])));
+        return s.empty() ? "c" : s;
     }
 
-    void writeFile(const fs::path &_path, const std::string &_content)
+    bool writeFile(const fs::path &_path, const std::string &_content)
     {
         std::ofstream f(_path, std::ios::binary);
+        if (!f)
+            return false; // fichier verrouille / lecture seule / chemin invalide
         f << _content;
+        return f.good();
     }
 
-    // (Re)genere RegisterSystems.{hpp,cpp} en listant tous les <Nom>.json du
-    // dossier : un include + un registry.add par systeme. Le main du jeu ne
-    // bouge jamais, seul ce fichier est reecrit.
     void regenerateRegister(const fs::path &_systemsDir)
     {
         std::vector<std::string> names;
-        for (const auto &entry : fs::directory_iterator(_systemsDir))
+        std::error_code ec;
+        for (fs::directory_iterator it(_systemsDir, ec), end; it != end && !ec; it.increment(ec))
         {
+            const auto &entry = *it;
             if (!entry.is_regular_file() || entry.path().extension() != ".json")
                 continue;
             if (auto info = loadSystemInfo(entry.path()))
@@ -49,18 +54,18 @@ namespace
 
         writeFile(_systemsDir / "RegisterSystems.hpp",
                   "#pragma once\n\n"
-                  "#include \"visu/systems/SystemScheduler.hpp\"\n\n"
-                  "// Genere par EE-Visu. Branche tous les systemes du projet.\n"
-                  "void registerGameSystems(ee::systems::SystemRegistry &_registry);\n");
+                  "#include \"visu/scene/SystemHost.hpp\"\n\n"
+                  "// Genere par EE-Visu. Associe chaque nom de systeme a son type C++.\n"
+                  "void registerGameSystems(ee::scene::SystemHost &_host);\n");
 
         std::ostringstream cpp;
         cpp << "#include \"systems/RegisterSystems.hpp\"\n\n";
         cpp << "// Genere par EE-Visu -- ne pas editer a la main.\n";
         for (const std::string &n : names)
             cpp << "#include \"systems/" << n << ".hpp\"\n";
-        cpp << "\nvoid registerGameSystems(ee::systems::SystemRegistry &_registry)\n{\n";
+        cpp << "\nvoid registerGameSystems(ee::scene::SystemHost &_host)\n{\n";
         for (const std::string &n : names)
-            cpp << "    _registry.add(\"" << n << "\", &" << n << ");\n";
+            cpp << "    _host.reg(\"" << n << "\", ee::scene::makeSystemFactory<" << n << ">());\n";
         cpp << "}\n";
         writeFile(_systemsDir / "RegisterSystems.cpp", cpp.str());
     }
@@ -68,59 +73,71 @@ namespace
 
 namespace systemgen
 {
-    fs::path createSystem(const fs::path &_systemsDir, const SystemInfoCreation &_def)
+    CreateResult createSystem(const fs::path &_systemsDir, const SystemInfoCreation &_def)
     {
-        if (_def.name.empty())
-            return {};
+        // Nom invalide -> refus (identifiant C++ + nom de fichier surs).
+        if (!namevalidation::isValidIdentifier(_def.name))
+            return {{}, "Nom invalide (identifiant C++ requis)."};
+
+        const std::string &name = _def.name;
+
+        // Collision : ne pas ecraser un systeme existant (dont son .cpp edite
+        // a la main) en silence.
+        fs::path jsonPath = _systemsDir / (name + ".json");
+        fs::path hppPath = _systemsDir / (name + ".hpp");
+        fs::path cppPath = _systemsDir / (name + ".cpp");
+        if (fs::exists(jsonPath) || fs::exists(hppPath) || fs::exists(cppPath))
+            return {{}, "\"" + name + "\" existe deja."};
 
         std::error_code ec;
         fs::create_directories(_systemsDir, ec);
 
-        const std::string &name = _def.name;
-
-        // --- 1) sidecar .json (schema SystemInfo) ---
         nlohmann::json j;
         j["name"] = name;
         j["components"] = _def.requiredComponentName;
         j["priority"] = 0;
         j["category"] = "gameplay";
-        writeFile(_systemsDir / (name + ".json"), j.dump(2) + "\n");
+        if (!writeFile(jsonPath, j.dump(2) + "\n"))
+            return {{}, "Ecriture impossible (fichier verrouille ?)."};
 
-        // --- 2) header (convention uniforme) ---
         std::ostringstream hpp;
         hpp << "#pragma once\n\n"
-            << "#include \"visu/systems/SystemScheduler.hpp\"\n\n"
-            << "// Systeme genere par EE-Visu.\n"
-            << "// Convention : void <Nom>(const ee::systems::FrameContext &).\n"
-            << "void " << name << "(const ee::systems::FrameContext &_ctx);\n";
-        writeFile(_systemsDir / (name + ".hpp"), hpp.str());
+            << "#include \"ecs/System.hpp\"\n\n"
+            << "// Systeme genere par EE-Visu. Classe ee::ecs::System : update()\n"
+            << "// itere m_entities -> uniquement les entites qui matchent la signature.\n"
+            << "class " << name << " : public ee::ecs::System\n"
+            << "{\n"
+            << "public:\n"
+            << "    void update(ee::ecs::World &_world, float _dt) override;\n"
+            << "};\n";
+        if (!writeFile(hppPath, hpp.str()))
+            return {{}, "Ecriture impossible (fichier verrouille ?)."};
 
-        // --- 3) stub .cpp (le corps a completer) ---
         std::ostringstream cpp;
         cpp << "#include \"systems/" << name << ".hpp\"\n\n"
-            << "#include \"visu/core/SceneQuery.hpp\"\n\n"
-            << "void " << name << "(const ee::systems::FrameContext &_ctx)\n"
+            << "#include \"ecs/World.hpp\"\n"
+            << "#include \"visu/input/Input.hpp\"\n"
+            << "#include \"visu/components/Components.hpp\" // composants moteur (Transform, formes...)\n"
+            << "// + #include \"components/TonComposant.hpp\" pour tes composants de jeu\n\n"
+            << "void " << name << "::update(ee::ecs::World &_world, float _dt)\n"
             << "{\n"
-            << "    SceneInfo &scene = *_ctx.scene;\n\n"
-            << "    // Signature : les entites traitees par ce systeme.\n"
-            << "    static const std::vector<std::string> kSignature = { "
-            << quotedList(_def.requiredComponentName) << " };\n\n"
-            << "    for (EntityInfo &ent : scene.entities)\n"
+            << "    for (ee::ecs::EntityID e : m_entities)\n"
             << "    {\n"
-            << "        if (!ee::scene::matchesSignature(ent, kSignature))\n"
-            << "            continue;\n\n"
-            << "        // TODO: ta logique ici. Exemple :\n"
-            << "        //   ComponentInstance *tf = ee::scene::findComponent(ent, \"TransformComponent\");\n"
-            << "        //   float x = ee::scene::getFloat(*tf, \"x\", 0.0f);\n"
-            << "        //   ee::scene::setFloat(*tf, \"x\", x + _ctx.input.moveX * _ctx.dt);\n"
+            << "        // Acces typé aux composants de la signature :\n";
+        for (const std::string &c : _def.requiredComponentName)
+            cpp << "        // " << c << " &" << varNameFor(c)
+                << " = _world.getComponent<" << c << ">(e);\n";
+        cpp << "        // Entree du frame : ee::input::state().moveX / .moveZ\n"
+            << "        // TODO: ta logique (ex. " << (_def.requiredComponentName.empty() ? "..." : varNameFor(_def.requiredComponentName.front()))
+            << " ...).\n"
+            << "        (void)_world; (void)_dt; (void)e;\n"
             << "    }\n"
             << "}\n";
-        fs::path cppPath = _systemsDir / (name + ".cpp");
-        writeFile(cppPath, cpp.str());
+        if (!writeFile(cppPath, cpp.str()))
+            return {{}, "Ecriture impossible (fichier verrouille ?)."};
 
-        // --- 4) rebrancher tout au registre ---
         regenerateRegister(_systemsDir);
 
-        return cppPath;
+        return {cppPath, {}};
     }
 }

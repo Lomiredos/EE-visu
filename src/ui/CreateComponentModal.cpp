@@ -1,5 +1,7 @@
 #include "visu/ui/CreateComponentModal.hpp"
 
+#include "visu/helpers/NameValidation.hpp"
+
 #include <imgui.h>
 #include <imgui_stdlib.h>
 
@@ -64,7 +66,10 @@ bool CreateComponentModal::Draw()
             m_fields.push_back({"", "float"});
 
         ImGui::Separator();
-        bool nameValid = !m_name.empty();
+        bool nameValid = namevalidation::isValidIdentifier(m_name);
+        if (!m_name.empty() && !nameValid)
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f),
+                               "Nom invalide (identifiant C++ : lettres/chiffres/_, pas de chiffre en tete).");
         if (!nameValid)
             ImGui::BeginDisabled();
         if (ImGui::Button("Créer"))

@@ -1,16 +1,17 @@
 #include "visu/ui/CreateSystemModal.hpp"
+
+#include "visu/helpers/NameValidation.hpp"
+
 #include <imgui.h>
 #include <imgui_stdlib.h>
-#include "visu/helpers/ComponentGetter.hpp"
 
-#include <iostream>
-CreateSystemModal::CreateSystemModal(std::function<void(SystemInfoCreation)> _cb)
+CreateSystemModal::CreateSystemModal(std::vector<std::string> _components,
+                                     std::function<void(SystemInfoCreation)> _cb)
 {
-    m_componentsNames = getAvaibleComponents();
-    for (size_t i = 0; i < m_componentsNames.size(); i++)
-    {
-        m_valide.push_back(false);
-    }
+    // La liste vient du CALLER (source unique : union moteur + projet). La modal
+    // reste "dumb" : elle ne scanne aucun catalogue elle-meme.
+    m_componentsNames = std::move(_components);
+    m_valide.assign(m_componentsNames.size(), false);
     m_onClose = _cb;
 }
 
@@ -41,7 +42,10 @@ bool CreateSystemModal::Draw()
                 m_valide[i] = coche;
         }
         ImGui::Separator();
-        bool isnameValide = !m_sysName.empty();
+        bool isnameValide = namevalidation::isValidIdentifier(m_sysName);
+        if (!m_sysName.empty() && !isnameValide)
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f),
+                               "Nom invalide (identifiant C++ : lettres/chiffres/_, pas de chiffre en tete).");
         if (!isnameValide)
             ImGui::BeginDisabled();
         if (ImGui::Button("Créer"))

@@ -3,14 +3,34 @@
 #include "visu/ui/Panel.hpp"
 #include "visu/ui/ScenePreview.hpp"
 
+#include <string>
+
 class MainPanel : public Panel
 {
 public:
     const char *name() const override { return "Main"; }
     void draw(Project *project) override;
 
+    // Suppressions en attente de confirmation, partagees entre Hierarchy,
+    // Inspector et les modals. Membre (plus de static de fichier) : l'etat est
+    // porte par l'instance du panneau.
+    struct DeletionState
+    {
+        int deleteEntity = -1;      // composant : entite ciblee
+        int deleteComp = -1;        // composant : index du composant
+        bool openDeleteModal = false;
+        int entityToDelete = -1;    // entite ciblee
+        bool openDeleteEntityModal = false;
+    };
+
 private:
     ScenePreview m_preview;
+    DeletionState m_del;
+
+    // Build du projet (bouton Build) : statut + log + popup d'erreur.
+    std::string m_buildStatus;
+    std::string m_buildLog;
+    bool m_openBuildErrorPopup = false;
 
     bool m_navMode = false;
     bool m_navJustEntered = false;

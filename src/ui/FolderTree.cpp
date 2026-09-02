@@ -8,8 +8,10 @@ fs::path drawFolderTree(const fs::path &_dir,
                         const std::vector<std::string> &_showExtensions)
 {
     fs::path clicked;
-    for (const auto &entry : fs::directory_iterator(_dir))
+    std::error_code ec;
+    for (fs::directory_iterator it(_dir, ec), end; it != end && !ec; it.increment(ec))
     {
+        const auto &entry = *it;
         if (entry.is_directory())
         {
             if (ImGui::TreeNode(entry.path().filename().string().c_str()))

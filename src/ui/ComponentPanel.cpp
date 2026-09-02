@@ -11,6 +11,7 @@
 
 #include "visu/ui/CreateComponentModal.hpp"
 #include "visu/helpers/ComponentGen.hpp"
+#include "visu/helpers/GenerateCatalog.hpp"
 
 namespace fs = std::filesystem;
 
@@ -29,12 +30,53 @@ void ComponentPanel::draw(Project *project)
         App &app = App::getInstance();
         // Genere <projet>/Components/<Nom>.hpp (struct + Reflect), regenere
         // RegisterComponents, puis ouvre le .hpp dans VS Code.
-        app.openModal(std::make_unique<CreateComponentModal>([dir](ComponentInfoCreation _data)
+        app.openModal(std::make_unique<CreateComponentModal>([dir, this](ComponentInfoCreation _data)
                                                              {
-                                                                 fs::path hpp = componentgen::createComponent(dir, _data);
-                                                                 if (!hpp.empty())
-                                                                     openInVSCode(hpp);
+                                                                 componentgen::CreateResult r = componentgen::createComponent(dir, _data);
+                                                                 if (r.error.empty())
+                                                                 {
+                                                                     m_status = "Composant cree.";
+                                                                     openInVSCode(r.path);
+                                                                 }
+                                                                 else
+                                                                     m_status = r.error;
                                                              }));
+    }
+
+    ImGui::SameLine();
+
+    // Generation par VRAIE compilation : compile gen_components (test de
+    // validite des structs), puis ecrit Components.json ; sinon popup d'erreur.
+    if (ImGui::Button("Generate catalog (build)"))
+    {
+        catalog::GenResult r = catalog::generate(project->root());
+        if (r.ok)
+            m_status = "Catalogue genere.";
+        else
+        {
+            m_status = "Echec de la compilation.";
+            m_buildLog = r.log;
+            m_openErrorPopup = true;
+        }
+    }
+    if (!m_status.empty())
+        ImGui::TextDisabled("%s", m_status.c_str());
+
+    // Popup d'erreur (bloquant) : montre la sortie du compilo.
+    if (m_openErrorPopup)
+    {
+        ImGui::OpenPopup("Erreur de compilation");
+        m_openErrorPopup = false;
+    }
+    if (ImGui::BeginPopupModal("Erreur de compilation", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::TextUnformatted("La generation a echoue. Sortie :");
+        ImGui::BeginChild("log", ImVec2(720, 320), true, ImGuiWindowFlags_HorizontalScrollbar);
+        ImGui::TextUnformatted(m_buildLog.c_str());
+        ImGui::EndChild();
+        if (ImGui::Button("Fermer"))
+            ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
     }
 
     ImGui::Separator();
