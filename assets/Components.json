@@ -45,18 +45,18 @@
             ]
         },
         {
-            "name": "MotionComponent",
+            "name": "RigideBody",
             "fields": [
                 {
-                    "name": "SpeedX",
+                    "name": "VelocityX",
                     "type": "float"
                 },
                 {
-                    "name": "SpeedY",
+                    "name": "VelocityY",
                     "type": "float"
                 },
                 {
-                    "name": "SpeedZ",
+                    "name": "VelocityZ",
                     "type": "float"
                 }
             ]

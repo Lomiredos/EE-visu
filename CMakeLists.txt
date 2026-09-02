@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Le coeur moteur 3D partage (rendu, systemes, scene) vit hors de l'editeur.
 # EE-Visu n'en est plus qu'un CLIENT, au meme titre que le jeu.
-add_subdirectory("C:/Dev/eliott-engine-3d" "${CMAKE_BINARY_DIR}/ee-core")
+add_subdirectory(extern/eliott-engine-3d "${CMAKE_BINARY_DIR}/ee-core")
 
 add_executable(eliott-visu
     src/main.cpp

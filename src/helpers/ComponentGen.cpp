@@ -42,7 +42,7 @@ namespace
             if (!entry.is_regular_file() || entry.path().extension() != ".hpp")
                 continue;
             std::string stem = entry.path().stem().string();
-            if (stem == "RegisterComponents")
+            if (stem == "RegisterComponents" || stem == "RegisterWorldComponents")
                 continue;
             names.push_back(stem);
         }
@@ -64,6 +64,24 @@ namespace
             cpp << "    ee::reflection::emitComponent<" << n << ">(_components);\n";
         cpp << "}\n";
         writeFile(_dir / "RegisterComponents.cpp", cpp.str());
+
+        // --- Enregistrement des composants dans le World typé (runtime) ---
+        writeFile(_dir / "RegisterWorldComponents.hpp",
+                  "#pragma once\n\n"
+                  "#include \"visu/scene/WorldLoader.hpp\"\n\n"
+                  "// Genere par EE-Visu : enregistre les composants du jeu dans le World.\n"
+                  "void registerGameComponents(ee::scene::WorldRegistry &_reg);\n");
+
+        std::ostringstream world;
+        world << "#include \"components/RegisterWorldComponents.hpp\"\n\n";
+        world << "// Genere par EE-Visu -- ne pas editer a la main.\n";
+        for (const std::string &n : names)
+            world << "#include \"components/" << n << ".hpp\"\n";
+        world << "\nvoid registerGameComponents(ee::scene::WorldRegistry &_reg)\n{\n";
+        for (const std::string &n : names)
+            world << "    _reg.reg<" << n << ">();\n";
+        world << "}\n";
+        writeFile(_dir / "RegisterWorldComponents.cpp", world.str());
     }
 }
 
