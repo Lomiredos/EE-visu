@@ -60,16 +60,27 @@ void SystemPanel::draw(Project *project)
 
         ImGui::Separator();
 
-        // Double-click sur un systeme -> ouvre son .cpp dans VS Code.
-        fs::path clicked = drawFolderTree(
-            dir,
-            [](const fs::path &p)
-            {
-                fs::path cpp = p;
-                cpp.replace_extension(".cpp");
-                openInVSCode(fs::exists(cpp) ? cpp : p);
-            },
-            {".hpp"});
+        // Ouvre le .cpp (ou le .hpp si header-only) dans VS Code au double-click.
+        auto openCode = [](const fs::path &p)
+        {
+            fs::path cpp = p;
+            cpp.replace_extension(".cpp");
+            openInVSCode(fs::exists(cpp) ? cpp : p);
+        };
+
+        // Systemes du PROJET (on masque le fichier de registration).
+        ImGui::TextDisabled("Projet");
+        fs::path clicked = drawFolderTree(dir, openCode, {".hpp"}, {"RegisterSystems"});
+
+        // Systemes MOTEUR (ee-core, submodule) -- lecture seule.
+        fs::path engineDir = fs::path(ASSETS_DIR).parent_path() /
+                             "extern" / "eliott-engine-3d" / "include" / "visu" / "systems";
+        ImGui::TextDisabled("Moteur");
+        fs::path clickedEngine = drawFolderTree(engineDir, openCode, {".hpp"},
+                                                {"SystemScheduler", "RenderSystem", "PickingSystem"});
+        if (clicked.empty())
+            clicked = clickedEngine;
+
         if (!clicked.empty())
         {
             App &app = App::getInstance();

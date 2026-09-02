@@ -81,38 +81,47 @@ void ComponentPanel::draw(Project *project)
 
     ImGui::Separator();
 
+    auto openHpp = [](const fs::path &p)
+    { openInVSCode(p); };
+
+    // Composants du PROJET (on masque les fichiers de registration).
+    ImGui::TextDisabled("Projet");
+    fs::path clicked;
     if (fs::exists(dir))
-    {
-        // Double-click sur un composant -> ouvre son .hpp dans VS Code.
-        fs::path clicked = drawFolderTree(
-            dir,
-            [](const fs::path &p)
-            { openInVSCode(p); },
-            {".hpp"});
-
-        if (!clicked.empty())
-        {
-            App &app = App::getInstance();
-
-            if (ShowCodePanel *unlocked = app.getPanel<ShowCodePanel>(true))
-                unlocked->changePath(clicked);
-            else
-            {
-                std::unique_ptr<Panel> panel = std::make_unique<ShowCodePanel>(clicked);
-
-                if (ShowCodePanel *existing = app.getPanel<ShowCodePanel>(false))
-                    panel->dock.dockTarget = existing->dockNode();
-                else
-                {
-                    panel->dock.splitSource = ImGui::GetWindowDockID();
-                    panel->dock.splitDir = Dir::Right;
-                    panel->dock.splitRatio = 0.5f;
-                }
-
-                app.requestPanel(std::move(panel));
-            }
-        }
-    }
+        clicked = drawFolderTree(dir, openHpp, {".hpp"},
+                                 {"RegisterComponents", "RegisterWorldComponents", "Components"});
     else
         ImGui::TextDisabled("(aucun composant -- cree-en un)");
+
+    // Composants MOTEUR (ee-core, submodule) -- lecture seule. On masque
+    // l'agregateur Components.hpp (ce n'est pas un composant).
+    fs::path engineDir = fs::path(ASSETS_DIR).parent_path() /
+                         "extern" / "eliott-engine-3d" / "include" / "visu" / "components";
+    ImGui::TextDisabled("Moteur");
+    fs::path clickedEngine = drawFolderTree(engineDir, openHpp, {".hpp"}, {"Components"});
+    if (clicked.empty())
+        clicked = clickedEngine;
+
+    if (!clicked.empty())
+    {
+        App &app = App::getInstance();
+
+        if (ShowCodePanel *unlocked = app.getPanel<ShowCodePanel>(true))
+            unlocked->changePath(clicked);
+        else
+        {
+            std::unique_ptr<Panel> panel = std::make_unique<ShowCodePanel>(clicked);
+
+            if (ShowCodePanel *existing = app.getPanel<ShowCodePanel>(false))
+                panel->dock.dockTarget = existing->dockNode();
+            else
+            {
+                panel->dock.splitSource = ImGui::GetWindowDockID();
+                panel->dock.splitDir = Dir::Right;
+                panel->dock.splitRatio = 0.5f;
+            }
+
+            app.requestPanel(std::move(panel));
+        }
+    }
 }

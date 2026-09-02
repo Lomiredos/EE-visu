@@ -5,7 +5,8 @@ namespace fs = std::filesystem;
 
 fs::path drawFolderTree(const fs::path &_dir,
                         std::function<void(const std::filesystem::path &)> _onDoubleClick,
-                        const std::vector<std::string> &_showExtensions)
+                        const std::vector<std::string> &_showExtensions,
+                        const std::vector<std::string> &_excludeStems)
 {
     fs::path clicked;
     std::error_code ec;
@@ -17,7 +18,7 @@ fs::path drawFolderTree(const fs::path &_dir,
             if (ImGui::TreeNode(entry.path().filename().string().c_str()))
             {
                 // On remonte le clic venant des sous-dossiers.
-                fs::path sub = drawFolderTree(entry.path(), _onDoubleClick, _showExtensions);
+                fs::path sub = drawFolderTree(entry.path(), _onDoubleClick, _showExtensions, _excludeStems);
                 if (!sub.empty())
                     clicked = sub;
                 ImGui::TreePop();
@@ -38,6 +39,18 @@ fs::path drawFolderTree(const fs::path &_dir,
                 }
             }
             if (valide == false)
+                continue;
+
+            // Exclusion par nom de fichier (sans extension) : plomberie generee.
+            const std::string stem = entry.path().stem().string();
+            bool exclu = false;
+            for (const std::string &s : _excludeStems)
+                if (s == stem)
+                {
+                    exclu = true;
+                    break;
+                }
+            if (exclu)
                 continue;
 
             ImGui::TreeNodeEx(entry.path().filename().string().c_str(),
