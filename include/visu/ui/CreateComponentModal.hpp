@@ -5,11 +5,10 @@
 #include <string>
 #include <vector>
 
-// Un champ de composant tel qu'authore : un nom + un type FEUILLE.
 struct ComponentFieldDef
 {
     std::string name;
-    std::string type = "float"; // float | int | bool | string
+    std::string type = "float";
 };
 
 struct ComponentInfoCreation
@@ -18,9 +17,6 @@ struct ComponentInfoCreation
     std::vector<ComponentFieldDef> fields;
 };
 
-// Popup "creer un composant" : nom + liste de champs (nom + type). Ne connait
-// pas la generation : elle renvoie un ComponentInfoCreation a un callback, qui
-// serialisera (struct .hpp + reflexion). Symetrique de CreateSystemModal.
 class CreateComponentModal : public Modal
 {
 private:
