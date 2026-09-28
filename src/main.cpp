@@ -3,14 +3,15 @@
 #include <cstdio>
 #include <filesystem>
 
-int main() {
+int main(int argc, char *argv[]) {
   App &app = App::getInstance();
 
   if (!app.init())
     return 1;
 
   const std::filesystem::path projectPath =
-      "C:/Dev/eliott-engine-projects/empty-sphere";
+      argc > 1 ? std::filesystem::path(argv[1])
+               : "C:/Dev/eliott-engine-projects/empty-sphere";
   if (!std::filesystem::is_directory(projectPath))
     std::fprintf(stderr,
                  "[EE-Visu] Projet introuvable : %s\n"

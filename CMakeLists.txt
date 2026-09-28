@@ -3,6 +3,7 @@ project(eliott-visu VERSION 1.0.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(FetchContent)
 
@@ -111,3 +112,7 @@ target_link_libraries(eliott-visu PRIVATE
     imgui::imgui
     imguizmo::imguizmo
 )
+
+if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_options(eliott-visu PRIVATE -static)
+endif()

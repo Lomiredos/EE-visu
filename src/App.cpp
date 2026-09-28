@@ -17,8 +17,17 @@
 
 #include <GLFW/glfw3.h>
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
+#include <filesystem>
 #include <string>
+#include <thread>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 static void glfw_error_callback(int error, const char *description) {
   std::fprintf(stderr, "GLFW Error %d: %s\n", error, description);
@@ -26,6 +35,16 @@ static void glfw_error_callback(int error, const char *description) {
 static void glfw_window_close_callback(GLFWwindow *window) {
   glfwSetWindowShouldClose(window, GLFW_FALSE);
   App::getInstance().requestQuit();
+}
+
+static std::string GetExecutablePath() {
+#ifdef _WIN32
+  char buffer[MAX_PATH];
+  GetModuleFileNameA(nullptr, buffer, MAX_PATH);
+  return std::string(buffer);
+#else
+  return std::filesystem::read_symlink("/proc/self/exe").string();
+#endif
 }
 
 static void buildDefaultLayout(ImGuiID dockspace_id, const ImVec2 &size) {
@@ -92,7 +111,7 @@ bool App::init() {
     return false;
   }
   glfwMakeContextCurrent(m_window);
-  glfwSwapInterval(1); // v-sync
+  glfwSwapInterval(0); // pas de v-sync, cadence geree manuellement dans run()
   glfwSetWindowCloseCallback(m_window, glfw_window_close_callback);
 
   IMGUI_CHECKVERSION();
@@ -102,6 +121,15 @@ bool App::init() {
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
   io.ConfigViewportsNoDecoration = false;
+
+  // imgui.ini a cote de l'executable : sinon le fichier est lu/ecrit
+  // relatif au cwd, qui differe selon que EE-Visu est lance directement
+  // ou via le hub (qui herite du cwd du hub) -> layout incoherent.
+  static const std::string iniPath =
+      (std::filesystem::path(GetExecutablePath()).parent_path() /
+       "imgui.ini")
+          .string();
+  io.IniFilename = iniPath.c_str();
 
   ImFontConfig defaultFontConfig;
   defaultFontConfig.SizePixels = 13.0f;
@@ -291,5 +319,12 @@ void App::run() {
     }
 
     glfwSwapBuffers(m_window);
+
+    // Cadence manuelle (~60 FPS) au lieu de compter sur le v-sync du
+    // compositeur : certains compositeurs (Wayland notamment) arretent
+    // d'envoyer les signaux de frame quand la fenetre est masquee/inactive,
+    // ce qui bloquerait glfwSwapBuffers (et donc glfwPollEvents) indefiniment
+    // et ferait passer l'appli pour "ne repond plus".
+    std::this_thread::sleep_for(std::chrono::milliseconds(16));
   }
 }
