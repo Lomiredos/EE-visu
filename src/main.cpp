@@ -11,7 +11,7 @@ int main(int argc, char *argv[]) {
 
   const std::filesystem::path projectPath =
       argc > 1 ? std::filesystem::path(argv[1])
-               : "C:/Dev/eliott-engine-projects/empty-sphere";
+               : "None, tell your issue to the developper";
   if (!std::filesystem::is_directory(projectPath))
     std::fprintf(stderr,
                  "[EE-Visu] Projet introuvable : %s\n"

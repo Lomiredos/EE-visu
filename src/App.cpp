@@ -14,6 +14,7 @@
 #include "imgui_internal.h"
 
 #include "IconsFontAwesome6.h" // defines ICON_FA_* + ICON_MIN/MAX_FA
+#include "FontAwesomeSolid900.h" // police compressee, embarquee dans l'exe
 
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -139,9 +140,9 @@ bool App::init() {
   iconConfig.MergeMode = true;
   iconConfig.PixelSnapH = true;
   iconConfig.GlyphMinAdvanceX = 13.0f;
-  std::string fontPath = std::string(ASSETS_DIR) + "/fonts/fa-solid-900.ttf";
-  io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 13.0f, &iconConfig,
-                               iconRanges);
+  io.Fonts->AddFontFromMemoryCompressedTTF(
+      FontAwesomeSolid900_compressed_data, FontAwesomeSolid900_compressed_size,
+      13.0f, &iconConfig, iconRanges);
 
   ImGui::StyleColorsDark();
   ImGui_ImplGlfw_InitForOpenGL(m_window, true);
