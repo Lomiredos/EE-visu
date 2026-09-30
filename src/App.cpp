@@ -13,8 +13,8 @@
 #include "imgui_impl_opengl3.h"
 #include "imgui_internal.h"
 
-#include "IconsFontAwesome6.h" // defines ICON_FA_* + ICON_MIN/MAX_FA
 #include "FontAwesomeSolid900.h" // police compressee, embarquee dans l'exe
+#include "IconsFontAwesome6.h"   // defines ICON_FA_* + ICON_MIN/MAX_FA
 
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -112,7 +112,7 @@ bool App::init() {
     return false;
   }
   glfwMakeContextCurrent(m_window);
-  glfwSwapInterval(0); // pas de v-sync, cadence geree manuellement dans run()
+  glfwSwapInterval(0);
   glfwSetWindowCloseCallback(m_window, glfw_window_close_callback);
 
   IMGUI_CHECKVERSION();
@@ -123,12 +123,8 @@ bool App::init() {
   io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
   io.ConfigViewportsNoDecoration = false;
 
-  // imgui.ini a cote de l'executable : sinon le fichier est lu/ecrit
-  // relatif au cwd, qui differe selon que EE-Visu est lance directement
-  // ou via le hub (qui herite du cwd du hub) -> layout incoherent.
   static const std::string iniPath =
-      (std::filesystem::path(GetExecutablePath()).parent_path() /
-       "imgui.ini")
+      (std::filesystem::path(GetExecutablePath()).parent_path() / "imgui.init")
           .string();
   io.IniFilename = iniPath.c_str();
 
@@ -140,9 +136,9 @@ bool App::init() {
   iconConfig.MergeMode = true;
   iconConfig.PixelSnapH = true;
   iconConfig.GlyphMinAdvanceX = 13.0f;
-  io.Fonts->AddFontFromMemoryCompressedTTF(
-      FontAwesomeSolid900_compressed_data, FontAwesomeSolid900_compressed_size,
-      13.0f, &iconConfig, iconRanges);
+  io.Fonts->AddFontFromMemoryCompressedTTF(FontAwesomeSolid900_compressed_data,
+                                           FontAwesomeSolid900_compressed_size,
+                                           13.0f, &iconConfig, iconRanges);
 
   ImGui::StyleColorsDark();
   ImGui_ImplGlfw_InitForOpenGL(m_window, true);
