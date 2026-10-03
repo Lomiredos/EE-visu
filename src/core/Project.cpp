@@ -19,6 +19,8 @@ fs::path Project::componentsCatalog() const {
 fs::path Project::sceneFile() const { return m_root / "assets" / "scene.json"; }
 
 fs::path Project::executablePath() const {
-  // Convention MSVC multi-config : build/Debug/<nom>.exe
-  return m_root / "build" / "Debug" / (name() + ".exe");
+#ifdef _WIN32
+  return m_root / "build" / (name() + ".exe");
+#endif
+  return m_root / "build" / name();
 }

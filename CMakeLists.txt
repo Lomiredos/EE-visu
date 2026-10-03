@@ -73,6 +73,26 @@ add_library(glad::glad ALIAS glad)
 
 add_subdirectory(extern/eliott-engine-3d "${CMAKE_BINARY_DIR}/ee-core")
 
+FetchContent_Declare(
+    tinyfiledialogs
+    GIT_REPOSITORY https://github.com/native-toolkit/tinyfiledialogs.git
+    GIT_TAG master
+)
+FetchContent_MakeAvailable(tinyfiledialogs)
+
+add_library(tinyfiledialogs STATIC
+    ${tinyfiledialogs_SOURCE_DIR}/tinyfiledialogs.c
+)
+
+target_include_directories(tinyfiledialogs PUBLIC
+    ${tinyfiledialogs_SOURCE_DIR}
+)
+
+if(WIN32)
+    target_link_libraries(tinyfiledialogs PUBLIC comdlg32 ole32)
+endif()
+
+
 add_executable(eliott-visu
     src/main.cpp
     src/App.cpp
@@ -111,6 +131,7 @@ target_link_libraries(eliott-visu PRIVATE
     ee-core          # coeur moteur : amene aussi glad, glfw, OpenGL, nlohmann_json
     imgui::imgui
     imguizmo::imguizmo
+    tinyfiledialogs
 )
 
 if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")

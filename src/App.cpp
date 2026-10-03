@@ -16,6 +16,7 @@
 #include "FontAwesomeSolid900.h" // police compressee, embarquee dans l'exe
 #include "IconsFontAwesome6.h"   // defines ICON_FA_* + ICON_MIN/MAX_FA
 
+#include "tinyfiledialogs.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <chrono>
@@ -38,6 +39,7 @@ static void glfw_window_close_callback(GLFWwindow *window) {
   App::getInstance().requestQuit();
 }
 
+// ##TODO: check des erreur et securisation
 static std::string GetExecutablePath() {
 #ifdef _WIN32
   char buffer[MAX_PATH];
@@ -76,11 +78,9 @@ App::~App() {
 void App::flushPanel() {
   for (auto &p : m_pendingPanels) {
     if (p->dock.splitSource != 0) {
-      ImGuiID newNode =
-          ImGui::DockBuilderSplitNode( // l'enum class dir est deja caller sur
-                                       // la dir de imgui
-              p->dock.splitSource, (ImGuiDir)p->dock.splitDir,
-              p->dock.splitRatio, &newNode, nullptr);
+      ImGuiID newNode = ImGui::DockBuilderSplitNode(
+          p->dock.splitSource, (ImGuiDir)p->dock.splitDir, p->dock.splitRatio,
+          &newNode, nullptr);
       p->dock.dockTarget = newNode;
       p->dock.splitSource = 0;
       ImGui::DockBuilderFinish(m_dockspaceId);
@@ -155,8 +155,7 @@ bool App::init() {
 
 void App::openProject(const std::filesystem::path &path) {
   m_project = std::make_unique<Project>(path);
-  ee::core::setMeshBaseDir(
-      m_project->root()); // chemins .obj relatifs au projet
+  ee::core::setMeshBaseDir(m_project->root());
   m_sceneLoaded = false;
   m_selectedEntity = -1;
   m_sceneDirty = false;
@@ -172,7 +171,7 @@ void App::loadSceneIfNeeded() {
     if (auto loaded = loadScene(m_project->sceneFile()))
       m_scene = *loaded;
   m_sceneLoaded = true;
-  m_sceneDirty = false; // etat fraichement charge = propre
+  m_sceneDirty = false;
 }
 
 void App::saveCurrentScene() {
@@ -187,6 +186,40 @@ void App::requestQuit() {
     m_showQuitModal = true; // il reste des edits -> demander confirmation
   else
     glfwSetWindowShouldClose(m_window, GLFW_TRUE);
+}
+
+void App::drawChangeProjectModal() {
+  if (m_changeProject) {
+    if (m_sceneDirty) {
+      ImGui::OpenPopup("Change Project ?");
+      m_changeProject = false;
+    } else {
+      requestOpenProject();
+      m_changeProject = false;
+    }
+  }
+
+  if (ImGui::BeginPopupModal("Change Project ?", nullptr,
+                             ImGuiWindowFlags_AlwaysAutoResize)) {
+    ImGui::TextUnformatted("Le project a des modification non sauvegarder.");
+    ImGui::Spacing();
+
+    if (ImGui::Button("Sauvegarder et changer")) {
+      saveCurrentScene();
+      requestOpenProject();
+      ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Changer sans sauvegarder")) {
+      requestOpenProject();
+      ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Annuler"))
+      ImGui::CloseCurrentPopup();
+
+    ImGui::EndPopup();
+  }
 }
 
 void App::drawQuitModal() {
@@ -207,7 +240,7 @@ void App::drawQuitModal() {
       ImGui::CloseCurrentPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Quitter sans sauvegarder")) {
+    if (ImGui::Button("quitter sans sauvegarder")) {
       m_quitConfirmed = true;
       glfwSetWindowShouldClose(m_window, GLFW_TRUE);
       ImGui::CloseCurrentPopup();
@@ -229,11 +262,22 @@ void App::openModal(std::unique_ptr<Modal> _modal) {
   m_modalJustOpen = true;
 }
 
+void App::requestOpenProject() {
+
+  const char *selected =
+      tinyfd_selectFolderDialog("Choisir l'emplacement du projet", "");
+  if (selected != nullptr) {
+    openProject(selected);
+  }
+}
+
 void App::drawMenuBar() {
   if (ImGui::BeginMainMenuBar()) {
     if (ImGui::BeginMenu("Fichier")) {
       if (ImGui::MenuItem("Quitter"))
         requestQuit();
+      if (ImGui::MenuItem("Ouvrir un projet"))
+        m_changeProject = true;
       ImGui::EndMenu();
     }
 
@@ -296,6 +340,7 @@ void App::run() {
     }
 
     drawQuitModal();
+    drawChangeProjectModal();
 
     flushPanel();
 
@@ -316,12 +361,6 @@ void App::run() {
     }
 
     glfwSwapBuffers(m_window);
-
-    // Cadence manuelle (~60 FPS) au lieu de compter sur le v-sync du
-    // compositeur : certains compositeurs (Wayland notamment) arretent
-    // d'envoyer les signaux de frame quand la fenetre est masquee/inactive,
-    // ce qui bloquerait glfwSwapBuffers (et donc glfwPollEvents) indefiniment
-    // et ferait passer l'appli pour "ne repond plus".
     std::this_thread::sleep_for(std::chrono::milliseconds(16));
   }
 }
