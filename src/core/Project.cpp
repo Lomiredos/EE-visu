@@ -13,7 +13,7 @@ fs::path Project::systemsDir() const { return m_root / "Systems"; }
 fs::path Project::componentsDir() const { return m_root / "Components"; }
 
 fs::path Project::componentsCatalog() const {
-  return m_root / "assets" / "Components.json";
+  return m_root / "Assets" / "Components.json";
 }
 
 fs::path Project::scenesDataDir() const { return m_root / "Assets/ScenesDatas"; }
