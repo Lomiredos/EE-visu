@@ -5,23 +5,9 @@
 #include <imgui.h>
 #include <imgui_stdlib.h>
 
-CreateSceneModal::CreateSceneModal(std::vector<std::string> _parents,
-                                   std::function<void(SceneInfoCreation)> _cb)
+CreateSceneModal::CreateSceneModal(std::function<void(SceneInfoCreation)> _cb)
 {
-    m_parents = std::move(_parents);
     m_onClose = _cb;
-}
-
-SceneInfoCreation CreateSceneModal::buildResult()
-{
-    static const char *kHeritages[] = {"public", "protected", "private"};
-
-    SceneInfoCreation res;
-    res.name = m_name;
-    res.parent = m_parents.empty() ? kDefaultSceneParent
-                                   : m_parents[m_selectedParentIdx];
-    res.heritage = kHeritages[m_selectedHeritageIdx];
-    return res;
 }
 
 bool CreateSceneModal::Draw()
@@ -31,16 +17,6 @@ bool CreateSceneModal::Draw()
     if (ImGui::BeginPopupModal(Id(), NULL, 0))
     {
         ImGui::InputTextWithHint("Scene Name", "Your name...", &m_name);
-        ImGui::Separator();
-
-        std::vector<const char *> parentLabels;
-        for (const std::string &p : m_parents)
-            parentLabels.push_back(p.c_str());
-        ImGui::Combo("Parent", &m_selectedParentIdx, parentLabels.data(),
-                     static_cast<int>(parentLabels.size()));
-
-        static const char *kHeritages[] = {"public", "protected", "private"};
-        ImGui::Combo("Heritage", &m_selectedHeritageIdx, kHeritages, 3);
 
         ImGui::Separator();
         bool nameValid = namevalidation::isValidIdentifier(m_name);
@@ -51,7 +27,7 @@ bool CreateSceneModal::Draw()
             ImGui::BeginDisabled();
         if (ImGui::Button("Créer"))
         {
-            m_onClose(buildResult());
+            m_onClose({m_name});
             finished = true;
             ImGui::CloseCurrentPopup();
         }

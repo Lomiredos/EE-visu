@@ -6,16 +6,14 @@
 #include <string>
 
 // ---------------------------------------------------------------------------
-// Generation d'une scene dans le PROJET (Scenes/). Ecrit <Nom>.hpp : la
-// classe herite de son parent (ee::Scene ou une autre scene du projet, deja
-// voisine dans Scenes/ -> include relatif simple) et stub les 5 hooks
-// virtuels de ee::Scene (onEnter/onExit/onEvent/onUpdate/onRender), les
-// seuls que le moteur expose -- pas besoin d'introspection du parent.
+// Creation d'une scene dans le PROJET (Assets/ScenesDatas/). Une scene n'est
+// qu'un fichier JSON (SceneInfo) : pas de classe C++, pas de parent/heritage
+// -- la logique de jeu vit dans les Systems, jamais dans la scene elle-meme.
 // ---------------------------------------------------------------------------
 
 namespace scenegen
 {
-    // Resultat de creation : chemin du .hpp genere si succes (error vide),
+    // Resultat de creation : chemin du .json genere si succes (error vide),
     // sinon path vide + message d'erreur (nom invalide, collision, ecriture KO).
     struct CreateResult
     {
@@ -23,6 +21,6 @@ namespace scenegen
         std::string error;
     };
 
-    CreateResult createScene(const std::filesystem::path &_scenesDir,
+    CreateResult createScene(const std::filesystem::path &_scenesDataDir,
                              const SceneInfoCreation &_def);
 }

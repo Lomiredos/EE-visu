@@ -51,9 +51,9 @@ static void drawHierarchy(App &app, Project *project,
   }
 
   if (ImGui::BeginPopup("Scene_Selector")) {
-    std::filesystem::path scenesPath = project->scenesDir();
+    std::filesystem::path scenesPath = project->scenesDataDir();
     std::vector<std::string> sceneFiles =
-        getFilesInFolderWith(scenesPath, {".hpp"});
+        getFilesInFolderWith(scenesPath, {".json"});
 
     std::vector<std::string> sceneNames;
     for (const std::string &f : sceneFiles)
@@ -81,15 +81,10 @@ static void drawHierarchy(App &app, Project *project,
     }
     ImGui::Separator();
     if (ImGui::Button("+ Nouvelle scene")) {
-      std::vector<std::string> parents;
-      parents.push_back(kDefaultSceneParent);
-      for (const std::string &n : sceneNames)
-        parents.push_back(n);
-
       app.openModal(std::make_unique<CreateSceneModal>(
-          std::move(parents), [project, &sceneStatus](SceneInfoCreation _data) {
+          [project, &sceneStatus](SceneInfoCreation _data) {
             scenegen::CreateResult r =
-                scenegen::createScene(project->scenesDir(), _data);
+                scenegen::createScene(project->scenesDataDir(), _data);
             if (r.error.empty()) {
               sceneStatus = "Scene creee.";
               openInVSCode(r.path);

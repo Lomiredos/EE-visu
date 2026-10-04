@@ -12,14 +12,14 @@ fs::path Project::systemsDir() const { return m_root / "Systems"; }
 
 fs::path Project::componentsDir() const { return m_root / "Components"; }
 
-fs::path Project::scenesDir() const { return m_root / "Scenes"; }
-
 fs::path Project::componentsCatalog() const {
   return m_root / "assets" / "Components.json";
 }
 
+fs::path Project::scenesDataDir() const { return m_root / "Assets/ScenesDatas"; }
+
 fs::path Project::sceneFile(std::string _sceneName) const {
-  return m_root / "Assets/ScenesDatas" / (_sceneName + ".json");
+  return scenesDataDir() / (_sceneName + ".json");
 }
 
 fs::path Project::executablePath() const {
