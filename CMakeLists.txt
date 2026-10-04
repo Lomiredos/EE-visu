@@ -72,7 +72,6 @@ target_link_libraries(glad PUBLIC OpenGL::GL)
 add_library(glad::glad ALIAS glad)
 
 add_subdirectory(extern/eliott-engine-3d "${CMAKE_BINARY_DIR}/ee-core")
-add_subdirectory(extern/eliott-input "${CMAKE_BINARY_DIR}/ee-input")
 
 FetchContent_Declare(
     tinyfiledialogs
@@ -132,8 +131,7 @@ target_compile_definitions(eliott-visu PRIVATE
 )
 
 target_link_libraries(eliott-visu PRIVATE
-    ee-core          # coeur moteur : amene aussi glad, glfw, OpenGL, nlohmann_json
-    eliott-input     # InputManager, pour nourrir le jeu quand il tourne dans la preview
+    ee-core          # coeur moteur : amene aussi glad, glfw, OpenGL, nlohmann_json, eliott-ecs, eliott-input
     imgui::imgui
     imguizmo::imguizmo
     tinyfiledialogs

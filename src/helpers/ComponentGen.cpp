@@ -54,11 +54,11 @@ namespace
                   "void buildComponentCatalog(nlohmann::json &_components);\n");
 
         std::ostringstream cpp;
-        cpp << "#include \"components/RegisterComponents.hpp\"\n\n";
+        cpp << "#include \"Components/RegisterComponents.hpp\"\n\n";
         cpp << "#include \"visu/reflect/CatalogGen.hpp\"\n\n";
         cpp << "// Genere par EE-Visu -- ne pas editer a la main.\n";
         for (const std::string &n : names)
-            cpp << "#include \"components/" << n << ".hpp\"\n";
+            cpp << "#include \"Components/" << n << ".hpp\"\n";
         cpp << "\nvoid buildComponentCatalog(nlohmann::json &_components)\n{\n";
         for (const std::string &n : names)
             cpp << "    ee::reflection::emitComponent<" << n << ">(_components);\n";
@@ -73,10 +73,10 @@ namespace
                   "void registerGameComponents(ee::scene::WorldRegistry &_reg);\n");
 
         std::ostringstream world;
-        world << "#include \"components/RegisterWorldComponents.hpp\"\n\n";
+        world << "#include \"Components/RegisterWorldComponents.hpp\"\n\n";
         world << "// Genere par EE-Visu -- ne pas editer a la main.\n";
         for (const std::string &n : names)
-            world << "#include \"components/" << n << ".hpp\"\n";
+            world << "#include \"Components/" << n << ".hpp\"\n";
         world << "\nvoid registerGameComponents(ee::scene::WorldRegistry &_reg)\n{\n";
         for (const std::string &n : names)
             world << "    _reg.reg<" << n << ">();\n";

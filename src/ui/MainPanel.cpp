@@ -424,15 +424,15 @@ static bool drawGizmo(App &app, ScenePreview &preview,
   preview.getViewMatrix(vmat);
   preview.getProjMatrix(pmat);
 
-  float scx = gv("scaleX"), scy = gv("scaleY"), scz = gv("scaleZ");
+  float scx = gv("ScaleX"), scy = gv("ScaleY"), scz = gv("ScaleZ");
   if (scx <= 0.0f)
     scx = 1.0f;
   if (scy <= 0.0f)
     scy = 1.0f;
   if (scz <= 0.0f)
     scz = 1.0f;
-  float translation[3] = {gv("x"), gv("y"), gv("z")};
-  float rotation[3] = {gv("rotX"), gv("rotY"), gv("rotZ")};
+  float translation[3] = {gv("PositionX"), gv("PositionY"), gv("PositionZ")};
+  float rotation[3] = {gv("EuleurX"), gv("EuleurY"), gv("EuleurZ")};
   float scale[3] = {scx, scy, scz};
   float model[16];
   ImGuizmo::RecomposeMatrixFromComponents(translation, rotation, scale, model);
@@ -450,15 +450,15 @@ static bool drawGizmo(App &app, ScenePreview &preview,
 
   if (ImGuizmo::IsUsing()) {
     ImGuizmo::DecomposeMatrixToComponents(model, translation, rotation, scale);
-    tf->values["x"] = translation[0];
-    tf->values["y"] = translation[1];
-    tf->values["z"] = translation[2];
-    tf->values["rotX"] = rotation[0];
-    tf->values["rotY"] = rotation[1];
-    tf->values["rotZ"] = rotation[2];
-    tf->values["scaleX"] = scale[0];
-    tf->values["scaleY"] = scale[1];
-    tf->values["scaleZ"] = scale[2];
+    tf->values["PositionX"] = translation[0];
+    tf->values["PositionY"] = translation[1];
+    tf->values["PositionZ"] = translation[2];
+    tf->values["EuleurX"] = rotation[0];
+    tf->values["EuleurY"] = rotation[1];
+    tf->values["EuleurZ"] = rotation[2];
+    tf->values["ScaleX"] = scale[0];
+    tf->values["ScaleY"] = scale[1];
+    tf->values["ScaleZ"] = scale[2];
     app.markSceneDirty();
   }
   return ImGuizmo::IsOver() || ImGuizmo::IsUsing();

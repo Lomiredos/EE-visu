@@ -59,10 +59,10 @@ namespace
                   "void registerGameSystems(ee::scene::SystemHost &_host);\n");
 
         std::ostringstream cpp;
-        cpp << "#include \"systems/RegisterSystems.hpp\"\n\n";
+        cpp << "#include \"Systems/RegisterSystems.hpp\"\n\n";
         cpp << "// Genere par EE-Visu -- ne pas editer a la main.\n";
         for (const std::string &n : names)
-            cpp << "#include \"systems/" << n << ".hpp\"\n";
+            cpp << "#include \"Systems/" << n << ".hpp\"\n";
         cpp << "\nvoid registerGameSystems(ee::scene::SystemHost &_host)\n{\n";
         for (const std::string &n : names)
             cpp << "    _host.reg(\"" << n << "\", ee::scene::makeSystemFactory<" << n << ">());\n";
@@ -114,11 +114,11 @@ namespace systemgen
             return {{}, "Ecriture impossible (fichier verrouille ?)."};
 
         std::ostringstream cpp;
-        cpp << "#include \"systems/" << name << ".hpp\"\n\n"
+        cpp << "#include \"Systems/" << name << ".hpp\"\n\n"
             << "#include \"ecs/World.hpp\"\n"
-            << "#include \"visu/input/Input.hpp\"\n"
+            << "#include \"input/InputManager.hpp\"\n"
             << "#include \"visu/components/Components.hpp\" // composants moteur (Transform, formes...)\n"
-            << "// + #include \"components/TonComposant.hpp\" pour tes composants de jeu\n\n"
+            << "// + #include \"Components/TonComposant.hpp\" pour tes composants de jeu\n\n"
             << "void " << name << "::update(ee::ecs::World &_world, float _dt)\n"
             << "{\n"
             << "    for (ee::ecs::EntityID e : m_entities)\n"
@@ -127,7 +127,7 @@ namespace systemgen
         for (const std::string &c : _def.requiredComponentName)
             cpp << "        // " << c << " &" << varNameFor(c)
                 << " = _world.getComponent<" << c << ">(e);\n";
-        cpp << "        // Entree du frame : ee::input::state().moveX / .moveZ\n"
+        cpp << "        // Entree du frame : ee::input::InputManager::getInstance().IsKeyDown(ee::input::Key::W)\n"
             << "        // TODO: ta logique (ex. " << (_def.requiredComponentName.empty() ? "..." : varNameFor(_def.requiredComponentName.front()))
             << " ...).\n"
             << "        (void)_world; (void)_dt; (void)e;\n"

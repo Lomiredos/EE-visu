@@ -3,117 +3,50 @@
         {
             "name": "TransformComponent",
             "fields": [
-                {
-                    "name": "x",
-                    "type": "float"
-                },
-                {
-                    "name": "y",
-                    "type": "float"
-                },
-                {
-                    "name": "z",
-                    "type": "float"
-                },
-                {
-                    "name": "rotX",
-                    "type": "float"
-                },
-                {
-                    "name": "rotY",
-                    "type": "float"
-                },
-                {
-                    "name": "rotZ",
-                    "type": "float"
-                },
-                {
-                    "name": "scaleX",
-                    "type": "float",
-                    "default": 1.0
-                },
-                {
-                    "name": "scaleY",
-                    "type": "float",
-                    "default": 1.0
-                },
-                {
-                    "name": "scaleZ",
-                    "type": "float",
-                    "default": 1.0
-                }
+                { "name": "PositionX", "type": "float" },
+                { "name": "PositionY", "type": "float" },
+                { "name": "PositionZ", "type": "float" },
+                { "name": "EuleurX", "type": "float" },
+                { "name": "EuleurY", "type": "float" },
+                { "name": "EuleurZ", "type": "float" },
+                { "name": "ScaleX", "type": "float", "default": 1.0 },
+                { "name": "ScaleY", "type": "float", "default": 1.0 },
+                { "name": "ScaleZ", "type": "float", "default": 1.0 }
             ]
         },
         {
-            "name": "RigideBody",
+            "name": "RigideBodyComponent",
             "fields": [
-                {
-                    "name": "VelocityX",
-                    "type": "float"
-                },
-                {
-                    "name": "VelocityY",
-                    "type": "float"
-                },
-                {
-                    "name": "VelocityZ",
-                    "type": "float"
-                }
+                { "name": "VelocityX", "type": "float" },
+                { "name": "VelocityY", "type": "float" },
+                { "name": "VelocityZ", "type": "float" }
             ]
         },
         {
             "name": "SphereComponent",
             "fields": [
-                {
-                    "name": "radius",
-                    "type": "float",
-                    "default": 1.0
-                }
+                { "name": "radius", "type": "float", "default": 1.0 }
             ]
         },
         {
             "name": "RectComponent",
             "fields": [
-                {
-                    "name": "width",
-                    "type": "float",
-                    "default": 1.0
-                },
-                {
-                    "name": "height",
-                    "type": "float",
-                    "default": 1.0
-                },
-                {
-                    "name": "depth",
-                    "type": "float",
-                    "default": 1.0
-                }
+                { "name": "sizeX", "type": "float", "default": 1.0 },
+                { "name": "sizeY", "type": "float", "default": 1.0 },
+                { "name": "sizeZ", "type": "float", "default": 1.0 }
             ]
         },
         {
             "name": "CapsuleComponent",
             "fields": [
-                {
-                    "name": "radius",
-                    "type": "float",
-                    "default": 0.5
-                },
-                {
-                    "name": "height",
-                    "type": "float",
-                    "default": 1.0
-                }
+                { "name": "radius", "type": "float", "default": 0.5 },
+                { "name": "height", "type": "float", "default": 1.0 }
             ]
         },
         {
             "name": "MeshComponent",
             "fields": [
-                {
-                    "name": "path",
-                    "type": "string",
-                    "default": ""
-                }
+                { "name": "path", "type": "string", "default": "" }
             ]
         },
         {
@@ -123,77 +56,21 @@
                     "name": "Shape",
                     "type": "enum",
                     "default": "Sphere",
-                    "options": [
-                        "Sphere",
-                        "Box",
-                        "Capsule"
-                    ]
+                    "options": ["Sphere", "Box", "Capsule"]
                 },
-                {
-                    "name": "OffSetX",
-                    "type": "float",
-                    "default": 0.0
-                },
-                {
-                    "name": "OffSetY",
-                    "type": "float",
-                    "default": 0.0
-                },
-                {
-                    "name": "OffSetZ",
-                    "type": "float",
-                    "default": 0.0
-                },
-                {
-                    "name": "EulerX",
-                    "type": "float",
-                    "default": 0.0
-                },
-                {
-                    "name": "EulerY",
-                    "type": "float",
-                    "default": 0.0
-                },
-                {
-                    "name": "EulerZ",
-                    "type": "float",
-                    "default": 0.0
-                },
-                {
-                    "name": "IsActive",
-                    "type": "bool",
-                    "default": true
-                },
-                {
-                    "name": "IsTrigger",
-                    "type": "bool",
-                    "default": false
-                },
-                {
-                    "name": "radius",
-                    "type": "float",
-                    "default": 1.0
-                },
-                {
-                    "name": "HalfExtentsX",
-                    "type": "float",
-                    "default": 0.5
-                },
-                {
-                    "name": "HalfExtentsY",
-                    "type": "float",
-                    "default": 0.5
-                },
-                {
-                    "name": "HalfExtentsZ",
-                    "type": "float",
-                    "default": 0.5
-                },
-                {
-                    "name": "Height",
-                    "type": "float",
-                    "default": 2.0
-                }
+                { "name": "OffSetX", "type": "float", "default": 0.0 },
+                { "name": "OffSetY", "type": "float", "default": 0.0 },
+                { "name": "OffSetZ", "type": "float", "default": 0.0 },
+                { "name": "EulerX", "type": "float", "default": 0.0 },
+                { "name": "EulerY", "type": "float", "default": 0.0 },
+                { "name": "EulerZ", "type": "float", "default": 0.0 },
+                { "name": "IsActive", "type": "bool", "default": true },
+                { "name": "IsTrigger", "type": "bool", "default": false },
+                { "name": "radius", "type": "float", "default": 1.0 },
+                { "name": "HalfExtentsX", "type": "float", "default": 0.5 },
+                { "name": "HalfExtentsY", "type": "float", "default": 0.5 },
+                { "name": "HalfExtentsZ", "type": "float", "default": 0.5 },
+                { "name": "Height", "type": "float", "default": 2.0 }
             ]
         }
     ]
