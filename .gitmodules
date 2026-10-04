@@ -4,3 +4,6 @@
 [submodule "extern/eliott-engine-3d"]
 	path = extern/eliott-engine-3d
 	url = https://github.com/Lomiredos/eliott-engine-3d
+[submodule "extern/eliott-input"]
+	path = extern/eliott-input
+	url = https://github.com/Lomiredos/eliott-input
