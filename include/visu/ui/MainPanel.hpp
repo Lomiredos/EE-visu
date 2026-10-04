@@ -32,6 +32,10 @@ private:
     std::string m_buildLog;
     bool m_openBuildErrorPopup = false;
 
+    // Creation de scene (bouton "+ Nouvelle scene") : statut de la derniere
+    // generation (vide si succes et rien a signaler).
+    std::string m_sceneStatus;
+
     bool m_navMode = false;
     bool m_navJustEntered = false;
     int m_gizmoMode = 0; // gizmo : 0 = translation, 1 = rotation, 2 = echelle

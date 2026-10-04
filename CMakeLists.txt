@@ -106,10 +106,13 @@ add_executable(eliott-visu
     src/helpers/OpenExternal.cpp
     src/helpers/SystemGen.cpp
     src/ui/Modal.cpp
+    src/ui/ConfirmModal.cpp
     src/ui/CreateSystemModal.cpp
     src/ui/CreateComponentModal.cpp
+    src/ui/CreateSceneModal.cpp
     src/helpers/ComponentGetter.cpp
     src/helpers/ComponentGen.cpp
+    src/helpers/SceneGen.cpp
     src/helpers/GenerateCatalog.cpp
     src/helpers/BuildProject.cpp
     src/ui/ScenePreview.cpp

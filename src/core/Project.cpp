@@ -12,11 +12,15 @@ fs::path Project::systemsDir() const { return m_root / "Systems"; }
 
 fs::path Project::componentsDir() const { return m_root / "Components"; }
 
+fs::path Project::scenesDir() const { return m_root / "Scenes"; }
+
 fs::path Project::componentsCatalog() const {
   return m_root / "assets" / "Components.json";
 }
 
-fs::path Project::sceneFile() const { return m_root / "assets" / "scene.json"; }
+fs::path Project::sceneFile(std::string _sceneName) const {
+  return m_root / "Assets/ScenesDatas" / (_sceneName + ".json");
+}
 
 fs::path Project::executablePath() const {
 #ifdef _WIN32

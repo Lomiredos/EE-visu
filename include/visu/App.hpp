@@ -3,12 +3,20 @@
 #include "visu/core/SceneInfo.hpp"
 #include "visu/ui/Panel.hpp"
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <vector>
 
 struct GLFWwindow;
 class Project;
 class Modal;
+
+struct ModalInfos {
+  std::function<void(bool flag, bool state)> functionCheck;
+  std::string title;
+  std::string text;
+  std::pair<std::string, std::function<void()>> choices;
+};
 
 class App {
 private:
@@ -21,16 +29,12 @@ private:
   bool m_needDefaultLayout = false;
   unsigned int m_dockspaceId = 0;
 
-  // Etat de scene partage entre Hierarchy et Inspector.
   SceneInfo m_scene;
   int m_selectedEntity = -1;
   bool m_sceneLoaded = false;
-  bool m_sceneDirty = false; // edits non sauvegardes
+  bool m_sceneDirty = false;
 
-  // Flux de fermeture : confirmer si des edits ne sont pas sauvegardes.
-  bool m_showQuitModal = false;
   bool m_quitConfirmed = false;
-  bool m_changeProject = false;
 
   App();
   ~App();
@@ -47,20 +51,18 @@ public:
   void requestPanel(std::unique_ptr<Panel> _panel);
   void openModal(std::unique_ptr<Modal> _modal);
 
-  // Scene partagee (Hierarchy / Inspector).
   SceneInfo &sceneData() { return m_scene; }
   int &selectedEntity() { return m_selectedEntity; }
-  void loadSceneIfNeeded(); // charge depuis le projet courant une seule fois
-  void saveCurrentScene();  // ecrit vers le projet courant
+  void loadSceneIfNeeded();
+  void loadSceneData(const std::string &_sceneName);
+  void saveCurrentScene();
 
-  // Suivi des modifications non sauvegardees.
   void markSceneDirty() { m_sceneDirty = true; }
   bool sceneDirty() const { return m_sceneDirty; }
 
-  // Demande de fermeture : ouvre la confirmation si des edits sont en attente,
-  // sinon ferme la fenetre. Appele par le menu Quitter et le bouton X.
   void requestQuit();
   void requestOpenProject();
+  void requestChangeProject();
 
   template <typename T> T *getPanel(bool unlockedOnly = false) {
     for (auto &p : m_panels) {
@@ -72,11 +74,10 @@ public:
     }
     return nullptr;
   }
+  const std::filesystem::path &getProjectRoot() const;
 
 private:
   void flushPanel();
   void drawMenuBar();
   void drawPanels();
-  void drawQuitModal();
-  void drawChangeProjectModal();
 };

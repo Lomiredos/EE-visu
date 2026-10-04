@@ -3,6 +3,7 @@
 #include "visu/core/MeshStore.hpp"
 #include "visu/core/Project.hpp"
 #include "visu/ui/ComponentPanel.hpp"
+#include "visu/ui/ConfirmModal.hpp"
 #include "visu/ui/MainPanel.hpp"
 #include "visu/ui/Modal.hpp"
 #include "visu/ui/Panel.hpp"
@@ -161,14 +162,33 @@ void App::openProject(const std::filesystem::path &path) {
   m_sceneDirty = false;
 }
 
+const std::filesystem::path &App::getProjectRoot() const {
+  return m_project->root();
+}
+
 void App::loadSceneIfNeeded() {
   if (m_sceneLoaded)
     return;
 
   m_scene = SceneInfo{};
+  m_scene.name = "BaseScene";
   m_selectedEntity = -1;
   if (m_project && m_project->isValid())
-    if (auto loaded = loadScene(m_project->sceneFile()))
+    if (auto loaded = loadScene(m_project->sceneFile("BaseScene")))
+      m_scene = *loaded;
+  m_sceneLoaded = true;
+  m_sceneDirty = false;
+}
+
+void App::loadSceneData(const std::string &_sceneName) {
+  m_selectedEntity = -1;
+  m_sceneLoaded = false;
+  m_sceneDirty = false;
+  m_scene = SceneInfo{};
+
+  m_scene.name = _sceneName;
+  if (m_project && m_project->isValid())
+    if (auto loaded = loadScene(m_project->sceneFile(_sceneName)))
       m_scene = *loaded;
   m_sceneLoaded = true;
   m_sceneDirty = false;
@@ -176,83 +196,33 @@ void App::loadSceneIfNeeded() {
 
 void App::saveCurrentScene() {
   if (m_project && m_project->isValid()) {
-    saveScene(m_scene, m_project->sceneFile());
+    saveScene(m_scene, m_project->sceneFile(m_scene.name));
     m_sceneDirty = false;
   }
 }
 
 void App::requestQuit() {
-  if (m_sceneDirty && !m_quitConfirmed)
-    m_showQuitModal = true; // il reste des edits -> demander confirmation
-  else
+  if (m_sceneDirty && !m_quitConfirmed) {
+    // il reste des edits -> demander confirmation
+    openModal(std::make_unique<ConfirmModal>(
+        "Quitter ?", "La scene a des modifications non sauvegardees.",
+        std::vector<ModalChoice>{
+            {"Sauvegarder et quitter",
+             [this]() {
+               saveCurrentScene();
+               m_quitConfirmed = true;
+               glfwSetWindowShouldClose(m_window, GLFW_TRUE);
+             }},
+            {"quitter sans sauvegarder",
+             [this]() {
+               m_quitConfirmed = true;
+               glfwSetWindowShouldClose(m_window, GLFW_TRUE);
+             }},
+            {"Annuler", nullptr}}));
+  } else {
     glfwSetWindowShouldClose(m_window, GLFW_TRUE);
-}
-
-void App::drawChangeProjectModal() {
-  if (m_changeProject) {
-    if (m_sceneDirty) {
-      ImGui::OpenPopup("Change Project ?");
-      m_changeProject = false;
-    } else {
-      requestOpenProject();
-      m_changeProject = false;
-    }
-  }
-
-  if (ImGui::BeginPopupModal("Change Project ?", nullptr,
-                             ImGuiWindowFlags_AlwaysAutoResize)) {
-    ImGui::TextUnformatted("Le project a des modification non sauvegarder.");
-    ImGui::Spacing();
-
-    if (ImGui::Button("Sauvegarder et changer")) {
-      saveCurrentScene();
-      requestOpenProject();
-      ImGui::CloseCurrentPopup();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Changer sans sauvegarder")) {
-      requestOpenProject();
-      ImGui::CloseCurrentPopup();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Annuler"))
-      ImGui::CloseCurrentPopup();
-
-    ImGui::EndPopup();
   }
 }
-
-void App::drawQuitModal() {
-  if (m_showQuitModal) {
-    ImGui::OpenPopup("Quitter ?");
-    m_showQuitModal = false;
-  }
-
-  if (ImGui::BeginPopupModal("Quitter ?", nullptr,
-                             ImGuiWindowFlags_AlwaysAutoResize)) {
-    ImGui::TextUnformatted("La scene a des modifications non sauvegardees.");
-    ImGui::Spacing();
-
-    if (ImGui::Button("Sauvegarder et quitter")) {
-      saveCurrentScene();
-      m_quitConfirmed = true;
-      glfwSetWindowShouldClose(m_window, GLFW_TRUE);
-      ImGui::CloseCurrentPopup();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("quitter sans sauvegarder")) {
-      m_quitConfirmed = true;
-      glfwSetWindowShouldClose(m_window, GLFW_TRUE);
-      ImGui::CloseCurrentPopup();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Annuler"))
-      ImGui::CloseCurrentPopup();
-
-    ImGui::EndPopup();
-  }
-}
-
 void App::requestPanel(std::unique_ptr<Panel> _panel) {
   m_pendingPanels.push_back(std::move(_panel));
 }
@@ -271,13 +241,31 @@ void App::requestOpenProject() {
   }
 }
 
+void App::requestChangeProject() {
+  if (m_sceneDirty) {
+    openModal(std::make_unique<ConfirmModal>(
+        "Change Project ?",
+        "Le project a des modification non sauvegarder.",
+        std::vector<ModalChoice>{
+            {"Sauvegarder et changer",
+             [this]() {
+               saveCurrentScene();
+               requestOpenProject();
+             }},
+            {"Changer sans sauvegarder", [this]() { requestOpenProject(); }},
+            {"Annuler", nullptr}}));
+  } else {
+    requestOpenProject();
+  }
+}
+
 void App::drawMenuBar() {
   if (ImGui::BeginMainMenuBar()) {
     if (ImGui::BeginMenu("Fichier")) {
       if (ImGui::MenuItem("Quitter"))
         requestQuit();
       if (ImGui::MenuItem("Ouvrir un projet"))
-        m_changeProject = true;
+        requestChangeProject();
       ImGui::EndMenu();
     }
 
@@ -338,9 +326,6 @@ void App::run() {
       if (finished)
         m_currentModal.reset();
     }
-
-    drawQuitModal();
-    drawChangeProjectModal();
 
     flushPanel();
 
