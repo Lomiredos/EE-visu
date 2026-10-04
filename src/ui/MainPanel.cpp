@@ -140,13 +140,12 @@ static void drawHierarchy(App &app, Project *project,
 
     if (ImGui::SmallButton(icon.c_str())) {
 
-      del.entityToDelete = i; // memorise QUELLE entite avant d'ouvrir le modal
+      del.entityToDelete = i;
       del.openDeleteEntityModal = true;
     }
   }
 }
 
-// --- Colonne droite : composants + valeurs de l'entite selectionnee ---
 static void drawInspector(App &app, Project *project,
                           MainPanel::DeletionState &del) {
   SceneInfo &scene = app.sceneData();
@@ -206,9 +205,7 @@ static void drawInspector(App &app, Project *project,
       if (ci.values.empty())
         ImGui::TextDisabled("(aucun champ)");
       for (auto &kv : ci.values) {
-        // Un widget par type actif du variant.
-        // DragFloat/DragInt = scrub facon Unity ; Checkbox pour bool ;
-        // InputText (via imgui_stdlib) pour les chaines.
+
         const char *lbl = kv.first.c_str();
         bool edited = false;
         if (auto p = std::get_if<float>(&kv.second))
@@ -234,8 +231,7 @@ static void drawInspector(App &app, Project *project,
 
   if (ImGui::BeginPopup("add_comp")) {
     std::map<std::string, std::map<std::string, FieldValue>> catalog =
-        getAllComponentDefaults(
-            project->componentsCatalog()); // union standard + projet
+        getAllComponentDefaults(project->componentsCatalog());
 
     bool any = false;
     for (const auto &entry : catalog) {
@@ -331,12 +327,11 @@ static void drawDeleteEntityConfirm(App &app, MainPanel::DeletionState &del) {
       if (valid) {
         scene.entities.erase(scene.entities.begin() + del.entityToDelete);
 
-        // Rattrape la selection : supprimer decale les indices suivants.
         int &sel = app.selectedEntity();
         if (sel == del.entityToDelete)
-          sel = -1; // celle qu'on regardait n'existe plus
+          sel = -1;
         else if (sel > del.entityToDelete)
-          --sel; // tout ce qui suivait recule d'un cran
+          --sel;
         app.markSceneDirty();
       }
       del.entityToDelete = -1;
@@ -349,6 +344,238 @@ static void drawDeleteEntityConfirm(App &app, MainPanel::DeletionState &del) {
     }
     ImGui::EndPopup();
   }
+}
+
+static void drawBuildPlay(App &app, Project *project, std::string &buildStatus,
+                          std::string &buildLog, bool &openBuildErrorPopup) {
+
+  if (ImGui::Button("Build")) {
+    projectbuild::BuildResult r = projectbuild::build(project->root());
+    if (r.ok)
+      buildStatus = "Build OK.";
+    else {
+      buildStatus = "Echec du build.";
+      buildLog = r.log;
+      openBuildErrorPopup = true;
+    }
+  }
+  ImGui::SameLine();
+
+  std::filesystem::path exe = project->executablePath();
+  bool exists = std::filesystem::exists(exe);
+  if (!exists)
+    ImGui::BeginDisabled();
+  if (ImGui::Button("Play")) {
+    app.saveCurrentScene();
+    launchProgram(exe);
+  }
+  if (!exists) {
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::TextDisabled("(exe introuvable - build le projet)");
+  }
+
+  if (!buildStatus.empty())
+    ImGui::TextDisabled("%s", buildStatus.c_str());
+
+  if (openBuildErrorPopup) {
+    ImGui::OpenPopup("Erreur de build");
+    openBuildErrorPopup = false;
+  }
+  if (ImGui::BeginPopupModal("Erreur de build", nullptr,
+                             ImGuiWindowFlags_AlwaysAutoResize)) {
+    ImGui::TextUnformatted("Le build a echoue. Sortie :");
+    ImGui::BeginChild("buildlog", ImVec2(720, 320), true,
+                      ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::TextUnformatted(buildLog.c_str());
+    ImGui::EndChild();
+    if (ImGui::Button("Fermer"))
+      ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
+  }
+}
+
+static bool drawGizmo(App &app, ScenePreview &preview,
+                      const MainPanel::NavState &nav, ImVec2 imgMin, int pw,
+                      int ph, unsigned int tex) {
+  ImGuizmo::BeginFrame();
+
+  int sel = app.selectedEntity();
+  SceneInfo &sc = app.sceneData();
+  if (tex == 0 || nav.navMode || sel < 0 ||
+      sel >= static_cast<int>(sc.entities.size()))
+    return false;
+
+  ComponentInstance *tf = nullptr;
+  for (auto &ci : sc.entities[sel].components)
+    if (ci.name == "TransformComponent") {
+      tf = &ci;
+      break;
+    }
+  if (!tf)
+    return false;
+
+  auto gv = [&](const char *k) -> float {
+    auto it = tf->values.find(k);
+    return it != tf->values.end() ? asFloat(it->second) : 0.0f;
+  };
+
+  float vmat[16], pmat[16];
+  preview.getViewMatrix(vmat);
+  preview.getProjMatrix(pmat);
+
+  float scx = gv("scaleX"), scy = gv("scaleY"), scz = gv("scaleZ");
+  if (scx <= 0.0f)
+    scx = 1.0f;
+  if (scy <= 0.0f)
+    scy = 1.0f;
+  if (scz <= 0.0f)
+    scz = 1.0f;
+  float translation[3] = {gv("x"), gv("y"), gv("z")};
+  float rotation[3] = {gv("rotX"), gv("rotY"), gv("rotZ")};
+  float scale[3] = {scx, scy, scz};
+  float model[16];
+  ImGuizmo::RecomposeMatrixFromComponents(translation, rotation, scale, model);
+
+  ImGuizmo::OPERATION op = ImGuizmo::TRANSLATE;
+  if (nav.gizmoMode == 1)
+    op = ImGuizmo::ROTATE;
+  else if (nav.gizmoMode == 2)
+    op = ImGuizmo::SCALE;
+  ImGuizmo::SetOrthographic(false);
+  ImGuizmo::SetDrawlist();
+  ImGuizmo::SetRect(imgMin.x, imgMin.y, static_cast<float>(pw),
+                    static_cast<float>(ph));
+  ImGuizmo::Manipulate(vmat, pmat, op, ImGuizmo::WORLD, model);
+
+  if (ImGuizmo::IsUsing()) {
+    ImGuizmo::DecomposeMatrixToComponents(model, translation, rotation, scale);
+    tf->values["x"] = translation[0];
+    tf->values["y"] = translation[1];
+    tf->values["z"] = translation[2];
+    tf->values["rotX"] = rotation[0];
+    tf->values["rotY"] = rotation[1];
+    tf->values["rotZ"] = rotation[2];
+    tf->values["scaleX"] = scale[0];
+    tf->values["scaleY"] = scale[1];
+    tf->values["scaleZ"] = scale[2];
+    app.markSceneDirty();
+  }
+  return ImGuizmo::IsOver() || ImGuizmo::IsUsing();
+}
+
+static void handlePreviewClicks(App &app, ScenePreview &preview,
+                                MainPanel::NavState &nav, GLFWwindow *win,
+                                unsigned int tex, bool gizmoActive) {
+
+  if (tex != 0 && !gizmoActive && ImGui::IsItemHovered() &&
+      ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+    nav.navMode = true;
+    nav.navJustEntered = true;
+    if (win)
+      glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  }
+
+  if (tex != 0 && !nav.navMode && !gizmoActive && ImGui::IsItemHovered() &&
+      ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+    ImVec2 rmin = ImGui::GetItemRectMin();
+    ImVec2 rmax = ImGui::GetItemRectMax();
+    ImVec2 mp = ImGui::GetMousePos();
+    float w = rmax.x - rmin.x, h = rmax.y - rmin.y;
+    if (w > 0.0f && h > 0.0f) {
+      float u = (mp.x - rmin.x) / w;
+      float vv = (mp.y - rmin.y) / h;
+      float ndcX = 2.0f * u - 1.0f;
+      float ndcY = 1.0f - 2.0f * vv;
+      int hit = preview.pick(app.sceneData(), ndcX, ndcY, w / h);
+      if (hit >= 0)
+        app.selectedEntity() = hit;
+    }
+  }
+}
+
+static void updateNavOrShowToolbar(ScenePreview &preview,
+                                   MainPanel::NavState &nav, GLFWwindow *win) {
+  if (nav.navMode) {
+    ImGuiIO &io = ImGui::GetIO();
+    float dt = io.DeltaTime > 0.0f ? io.DeltaTime : 1.0f / 60.0f;
+
+    if (win) {
+      double mx, my;
+      glfwGetCursorPos(win, &mx, &my);
+      if (nav.navJustEntered) {
+        nav.lastMouseX = mx;
+        nav.lastMouseY = my;
+        nav.navJustEntered = false;
+      }
+      float dx = static_cast<float>(mx - nav.lastMouseX);
+      float dy = static_cast<float>(my - nav.lastMouseY);
+      nav.lastMouseX = mx;
+      nav.lastMouseY = my;
+      preview.addYawPitch(dx * 0.0025f, -dy * 0.0025f);
+    }
+
+    float speed = 5.0f * dt, f = 0.0f, r = 0.0f, u = 0.0f;
+    if (ImGui::IsKeyDown(ImGuiKey_W) || ImGui::IsKeyDown(ImGuiKey_Z))
+      f += 1.0f;
+    if (ImGui::IsKeyDown(ImGuiKey_S))
+      f -= 1.0f;
+    if (ImGui::IsKeyDown(ImGuiKey_D))
+      r += 1.0f;
+    if (ImGui::IsKeyDown(ImGuiKey_A) || ImGui::IsKeyDown(ImGuiKey_Q))
+      r -= 1.0f;
+    if (ImGui::IsKeyDown(ImGuiKey_Space))
+      u += 1.0f;
+    if (ImGui::IsKeyDown(ImGuiKey_LeftShift))
+      u -= 1.0f;
+    preview.moveLocal(f * speed, r * speed, u * speed);
+
+    if (io.MouseWheel != 0.0f)
+      preview.dolly(io.MouseWheel * 0.5f);
+
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+      nav.navMode = false;
+      if (win)
+        glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+
+    ImGui::TextDisabled(
+        "ZQSD deplacer | souris tourner | molette zoom | Echap sortir");
+  } else {
+    if (ImGui::RadioButton("Deplacer", nav.gizmoMode == 0))
+      nav.gizmoMode = 0;
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Tourner", nav.gizmoMode == 1))
+      nav.gizmoMode = 1;
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Redim.", nav.gizmoMode == 2))
+      nav.gizmoMode = 2;
+    ImGui::SameLine();
+    ImGui::TextDisabled("| Double-clic pour naviguer");
+  }
+}
+
+static void drawScenePreview(App &app, ScenePreview &preview,
+                             MainPanel::NavState &nav) {
+  float hintH = ImGui::GetTextLineHeightWithSpacing();
+  ImVec2 avail = ImGui::GetContentRegionAvail();
+  int pw = static_cast<int>(avail.x);
+  int ph = static_cast<int>(avail.y - hintH);
+  unsigned int tex =
+      (pw > 0 && ph > 0)
+          ? preview.render(app.sceneData(), pw, ph, app.selectedEntity())
+          : 0;
+  if (tex != 0)
+    ImGui::Image((ImTextureID)(intptr_t)tex,
+                 ImVec2(static_cast<float>(pw), static_cast<float>(ph)),
+                 ImVec2(0, 1), ImVec2(1, 0));
+
+  ImVec2 imgMin = ImGui::GetItemRectMin();
+  GLFWwindow *win = glfwGetCurrentContext();
+
+  bool gizmoActive = drawGizmo(app, preview, nav, imgMin, pw, ph, tex);
+  handlePreviewClicks(app, preview, nav, win, tex, gizmoActive);
+  updateNavOrShowToolbar(preview, nav, win);
 }
 
 void MainPanel::draw(Project *project) {
@@ -366,261 +593,26 @@ void MainPanel::draw(Project *project) {
   const float rightW = totalW * 0.25f;
   const float centerW = totalW - leftW - rightW - 2.0f * spacing;
 
-  // Colonne gauche : Hierarchy
   ImGui::BeginChild("HierarchyRegion", ImVec2(leftW, 0), true);
   drawHierarchy(app, project, m_del, m_sceneStatus);
   ImGui::EndChild();
 
   ImGui::SameLine();
 
-  // Colonne centrale : infos projet + Play
   ImGui::BeginChild("CenterRegion", ImVec2(centerW, 0), true);
   ImGui::Text("Projet ouvert : %s", project->name().c_str());
   ImGui::Separator();
-  {
-    // Build : compile le projet, montre les erreurs -> boucle sans quitter.
-    if (ImGui::Button("Build")) {
-      projectbuild::BuildResult r = projectbuild::build(project->root());
-      if (r.ok)
-        m_buildStatus = "Build OK.";
-      else {
-        m_buildStatus = "Echec du build.";
-        m_buildLog = r.log;
-        m_openBuildErrorPopup = true;
-      }
-    }
-    ImGui::SameLine();
-
-    std::filesystem::path exe = project->executablePath();
-    bool exists = std::filesystem::exists(exe);
-    if (!exists)
-      ImGui::BeginDisabled();
-    if (ImGui::Button("Play")) {
-      app.saveCurrentScene(); // sauve les edits avant de lancer -> impact
-                              // immediat
-      launchProgram(exe);
-    }
-    if (!exists) {
-      ImGui::EndDisabled();
-      ImGui::SameLine();
-      ImGui::TextDisabled("(exe introuvable - build le projet)");
-    }
-
-    if (!m_buildStatus.empty())
-      ImGui::TextDisabled("%s", m_buildStatus.c_str());
-
-    // Popup d'erreur (bloquant) : sortie du compilo.
-    if (m_openBuildErrorPopup) {
-      ImGui::OpenPopup("Erreur de build");
-      m_openBuildErrorPopup = false;
-    }
-    if (ImGui::BeginPopupModal("Erreur de build", nullptr,
-                               ImGuiWindowFlags_AlwaysAutoResize)) {
-      ImGui::TextUnformatted("Le build a echoue. Sortie :");
-      ImGui::BeginChild("buildlog", ImVec2(720, 320), true,
-                        ImGuiWindowFlags_HorizontalScrollbar);
-      ImGui::TextUnformatted(m_buildLog.c_str());
-      ImGui::EndChild();
-      if (ImGui::Button("Fermer"))
-        ImGui::CloseCurrentPopup();
-      ImGui::EndPopup();
-    }
-  }
-
+  drawBuildPlay(app, project, m_buildStatus, m_buildLog, m_openBuildErrorPopup);
   ImGui::Separator();
-
-  // Preview 3D : rendu offscreen des spheres de la scene, affiche via
-  // ImGui::Image.
-  {
-    float hintH = ImGui::GetTextLineHeightWithSpacing();
-    ImVec2 avail = ImGui::GetContentRegionAvail();
-    int pw = static_cast<int>(avail.x);
-    int ph = static_cast<int>(avail.y - hintH); // reserve une ligne pour l'aide
-    unsigned int tex =
-        (pw > 0 && ph > 0)
-            ? m_preview.render(app.sceneData(), pw, ph, app.selectedEntity())
-            : 0;
-    if (tex != 0)
-      ImGui::Image((ImTextureID)(intptr_t)tex,
-                   ImVec2(static_cast<float>(pw), static_cast<float>(ph)),
-                   ImVec2(0, 1),
-                   ImVec2(1, 0)); // flip V (FBO origine bas-gauche)
-
-    ImVec2 imgMin = ImGui::GetItemRectMin();
-    GLFWwindow *win = glfwGetCurrentContext();
-
-    // --- Gizmo de translation (ImGuizmo) sur l'entite selectionnee ---
-    bool gizmoActive = false;
-    ImGuizmo::BeginFrame();
-    {
-      int sel = app.selectedEntity();
-      SceneInfo &sc = app.sceneData();
-      if (tex != 0 && !m_navMode && sel >= 0 &&
-          sel < static_cast<int>(sc.entities.size())) {
-        ComponentInstance *tf = nullptr;
-        for (auto &ci : sc.entities[sel].components)
-          if (ci.name == "TransformComponent") {
-            tf = &ci;
-            break;
-          }
-        if (tf) {
-          auto gv = [&](const char *k) -> float {
-            auto it = tf->values.find(k);
-            return it != tf->values.end() ? asFloat(it->second) : 0.0f;
-          };
-
-          float vmat[16], pmat[16];
-          m_preview.getViewMatrix(vmat);
-          m_preview.getProjMatrix(pmat);
-
-          // Compose la matrice modele depuis position, rotation ET echelle
-          // courantes : le gizmo part de l'etat reel de l'entite.
-          float scx = gv("scaleX"), scy = gv("scaleY"), scz = gv("scaleZ");
-          if (scx <= 0.0f) // entites anterieures aux champs scale
-            scx = 1.0f;
-          if (scy <= 0.0f)
-            scy = 1.0f;
-          if (scz <= 0.0f)
-            scz = 1.0f;
-          float translation[3] = {gv("x"), gv("y"), gv("z")};
-          float rotation[3] = {gv("rotX"), gv("rotY"), gv("rotZ")};
-          float scale[3] = {scx, scy, scz};
-          float model[16];
-          ImGuizmo::RecomposeMatrixFromComponents(translation, rotation, scale,
-                                                  model);
-
-          ImGuizmo::OPERATION op = ImGuizmo::TRANSLATE;
-          if (m_gizmoMode == 1)
-            op = ImGuizmo::ROTATE;
-          else if (m_gizmoMode == 2)
-            op = ImGuizmo::SCALE;
-          ImGuizmo::SetOrthographic(false);
-          ImGuizmo::SetDrawlist();
-          ImGuizmo::SetRect(imgMin.x, imgMin.y, static_cast<float>(pw),
-                            static_cast<float>(ph));
-          ImGuizmo::Manipulate(vmat, pmat, op, ImGuizmo::WORLD, model);
-
-          if (ImGuizmo::IsUsing()) {
-            // Redecompose : position + rotation + echelle uniforme.
-            ImGuizmo::DecomposeMatrixToComponents(model, translation, rotation,
-                                                  scale);
-            tf->values["x"] = translation[0];
-            tf->values["y"] = translation[1];
-            tf->values["z"] = translation[2];
-            tf->values["rotX"] = rotation[0];
-            tf->values["rotY"] = rotation[1];
-            tf->values["rotZ"] = rotation[2];
-            tf->values["scaleX"] = scale[0];
-            tf->values["scaleY"] = scale[1];
-            tf->values["scaleZ"] = scale[2];
-            app.markSceneDirty();
-          }
-          gizmoActive = ImGuizmo::IsOver() || ImGuizmo::IsUsing();
-        }
-      }
-    }
-
-    // Double-clic sur la preview -> entre en mode navigation (curseur capture).
-    if (tex != 0 && !gizmoActive && ImGui::IsItemHovered() &&
-        ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-      m_navMode = true;
-      m_navJustEntered = true;
-      if (win)
-        glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    }
-
-    // Clic simple sur la preview (hors navigation, hors gizmo) -> selectionne.
-    if (tex != 0 && !m_navMode && !gizmoActive && ImGui::IsItemHovered() &&
-        ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-      ImVec2 rmin = ImGui::GetItemRectMin();
-      ImVec2 rmax = ImGui::GetItemRectMax();
-      ImVec2 mp = ImGui::GetMousePos();
-      float w = rmax.x - rmin.x, h = rmax.y - rmin.y;
-      if (w > 0.0f && h > 0.0f) {
-        float u = (mp.x - rmin.x) / w;
-        float vv = (mp.y - rmin.y) / h;
-        float ndcX = 2.0f * u - 1.0f;
-        float ndcY = 1.0f - 2.0f * vv; // ecran: haut = +1
-        int hit = m_preview.pick(app.sceneData(), ndcX, ndcY, w / h);
-        if (hit >= 0)
-          app.selectedEntity() = hit;
-      }
-    }
-
-    if (m_navMode) {
-      ImGuiIO &io = ImGui::GetIO();
-      float dt = io.DeltaTime > 0.0f ? io.DeltaTime : 1.0f / 60.0f;
-
-      // Rotation : delta souris lu directement via GLFW (fiable curseur
-      // capture).
-      if (win) {
-        double mx, my;
-        glfwGetCursorPos(win, &mx, &my);
-        if (m_navJustEntered) {
-          m_lastMouseX = mx;
-          m_lastMouseY = my;
-          m_navJustEntered = false;
-        }
-        float dx = static_cast<float>(mx - m_lastMouseX);
-        float dy = static_cast<float>(my - m_lastMouseY);
-        m_lastMouseX = mx;
-        m_lastMouseY = my;
-        m_preview.addYawPitch(dx * 0.0025f, -dy * 0.0025f);
-      }
-
-      // Deplacement ZQSD (W/Z et A/Q pour AZERTY/QWERTY), Espace/Shift =
-      // haut/bas.
-      float speed = 5.0f * dt, f = 0.0f, r = 0.0f, u = 0.0f;
-      if (ImGui::IsKeyDown(ImGuiKey_W) || ImGui::IsKeyDown(ImGuiKey_Z))
-        f += 1.0f;
-      if (ImGui::IsKeyDown(ImGuiKey_S))
-        f -= 1.0f;
-      if (ImGui::IsKeyDown(ImGuiKey_D))
-        r += 1.0f;
-      if (ImGui::IsKeyDown(ImGuiKey_A) || ImGui::IsKeyDown(ImGuiKey_Q))
-        r -= 1.0f;
-      if (ImGui::IsKeyDown(ImGuiKey_Space))
-        u += 1.0f;
-      if (ImGui::IsKeyDown(ImGuiKey_LeftShift))
-        u -= 1.0f;
-      m_preview.moveLocal(f * speed, r * speed, u * speed);
-
-      // Zoom molette.
-      if (io.MouseWheel != 0.0f)
-        m_preview.dolly(io.MouseWheel * 0.5f);
-
-      // Echap -> sortir.
-      if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-        m_navMode = false;
-        if (win)
-          glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-      }
-
-      ImGui::TextDisabled(
-          "ZQSD deplacer | souris tourner | molette zoom | Echap sortir");
-    } else {
-      if (ImGui::RadioButton("Deplacer", m_gizmoMode == 0))
-        m_gizmoMode = 0;
-      ImGui::SameLine();
-      if (ImGui::RadioButton("Tourner", m_gizmoMode == 1))
-        m_gizmoMode = 1;
-      ImGui::SameLine();
-      if (ImGui::RadioButton("Redim.", m_gizmoMode == 2))
-        m_gizmoMode = 2;
-      ImGui::SameLine();
-      ImGui::TextDisabled("| Double-clic pour naviguer");
-    }
-  }
+  drawScenePreview(app, m_preview, m_nav);
   ImGui::EndChild();
 
   ImGui::SameLine();
 
-  // Colonne droite : Inspector
   ImGui::BeginChild("InspectorRegion", ImVec2(rightW, 0), true);
   drawInspector(app, project, m_del);
   ImGui::EndChild();
 
-  // Modal de confirmation au niveau de Main (hors des children).
   drawDeleteConfirm(app, m_del);
   drawDeleteEntityConfirm(app, m_del);
 }

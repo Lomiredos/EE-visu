@@ -25,7 +25,7 @@ getFilesInFolderWith(std::filesystem::path &_folderPath,
     }
     if (!isValide)
       continue;
-    names.push_back(file.path().filename());
+    names.push_back(file.path().filename().string());
   }
   return names;
 };
@@ -51,7 +51,7 @@ getFilesInFolderWithout(std::filesystem::path &_folderPath,
     }
     if (!isValide)
       continue;
-    names.push_back(file.path().filename());
+    names.push_back(file.path().filename().string());
   }
   return names;
 };
