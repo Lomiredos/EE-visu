@@ -27,7 +27,11 @@ namespace catalog
         // chemin projet ne cassent plus la commande shell.
         fs::path build = (_projectRoot / "build").make_preferred();
         fs::path log = (build / "gen_catalog.log").make_preferred();
-        fs::path genExe = (build / "Debug" / "gen_components.exe").make_preferred();
+#ifdef _WIN32
+        fs::path genExe = (build / "gen_components.exe").make_preferred();
+#else
+        fs::path genExe = (build / "gen_components").make_preferred();
+#endif
 
         const std::string qBuild = "\"" + build.string() + "\"";
         const std::string qLog = "\"" + log.string() + "\"";
@@ -35,7 +39,7 @@ namespace catalog
 
         // 1) Compiler la cible = le test de validite des structs.
         std::string cmd = "cmake --build " + qBuild +
-                          " --target gen_components --config Debug > " +
+                          " --target gen_components > " +
                           qLog + " 2>&1";
         int rc = std::system(cmd.c_str());
         res.log = readAll(log);
