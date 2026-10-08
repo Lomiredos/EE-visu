@@ -1,4 +1,5 @@
 #include "visu/helpers/ComponentGetter.hpp"
+#include "visu/helpers/StandardComponents.hpp"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <filesystem>
@@ -8,17 +9,15 @@ namespace fs = std::filesystem;
 
 #include <iostream>
 
-std::map<std::string, std::map<std::string, FieldValue>> getComponentDefaults(const fs::path &_catalog)
+// Lit le catalogue depuis un flux ou une chaine (tout ce que json::parse accepte).
+template <typename Source>
+static std::map<std::string, std::map<std::string, FieldValue>> parseComponentDefaults(Source &&_source)
 {
     std::map<std::string, std::map<std::string, FieldValue>> out;
 
-    std::ifstream f(_catalog);
-    if (!f)
-        return out;
-
     try
     {
-        json data = json::parse(f);
+        json data = json::parse(std::forward<Source>(_source));
         for (const auto &comp : data["components"])
         {
             std::string cname = comp.value("name", "");
@@ -54,9 +53,19 @@ std::map<std::string, std::map<std::string, FieldValue>> getComponentDefaults(co
     return out;
 }
 
+std::map<std::string, std::map<std::string, FieldValue>> getComponentDefaults(const fs::path &_catalog)
+{
+    std::ifstream f(_catalog);
+    if (!f)
+        return {};
+
+    return parseComponentDefaults(f);
+}
+
 std::map<std::string, std::map<std::string, FieldValue>> getAllComponentDefaults(const fs::path &_projectCatalog)
 {
-    auto all = getComponentDefaults(std::string(ASSETS_DIR) + "/Components.json");
+    // Catalogue standard integre au binaire (voir cmake/StandardComponents.hpp.in).
+    auto all = parseComponentDefaults(std::string(kStandardComponentsJson));
 
     auto project = getComponentDefaults(_projectCatalog);
 

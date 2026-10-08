@@ -1,6 +1,7 @@
 build/
 build-release/
 build-windows/
+build-win/
 .cache/
 *.user
 .vs/

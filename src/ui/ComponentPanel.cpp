@@ -95,8 +95,7 @@ void ComponentPanel::draw(Project *project)
 
     // Composants MOTEUR (ee-core, submodule) -- lecture seule. On masque
     // l'agregateur Components.hpp (ce n'est pas un composant).
-    fs::path engineDir = fs::path(ASSETS_DIR).parent_path() /
-                         "extern" / "eliott-engine-3d" / "include" / "visu" / "components";
+    fs::path engineDir = project->engineIncludeDir() / "components";
     ImGui::TextDisabled("Moteur");
     fs::path clickedEngine = drawFolderTree(engineDir, openHpp, {".hpp"}, {"Components"});
     if (clicked.empty())

@@ -73,8 +73,7 @@ void SystemPanel::draw(Project *project)
         fs::path clicked = drawFolderTree(dir, openCode, {".hpp"}, {"RegisterSystems"});
 
         // Systemes MOTEUR (ee-core, submodule) -- lecture seule.
-        fs::path engineDir = fs::path(ASSETS_DIR).parent_path() /
-                             "extern" / "eliott-engine-3d" / "include" / "visu" / "systems";
+        fs::path engineDir = project->engineIncludeDir() / "systems";
         ImGui::TextDisabled("Moteur");
         fs::path clickedEngine = drawFolderTree(engineDir, openCode, {".hpp"},
                                                 {"SystemScheduler", "RenderSystem", "PickingSystem"});

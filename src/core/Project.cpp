@@ -12,6 +12,10 @@ fs::path Project::systemsDir() const { return m_root / "Systems"; }
 
 fs::path Project::componentsDir() const { return m_root / "Components"; }
 
+fs::path Project::engineIncludeDir() const {
+  return m_root / "extern" / "eliott-engine-3d" / "include" / "visu";
+}
+
 fs::path Project::componentsCatalog() const {
   return m_root / "Assets" / "Components.json";
 }

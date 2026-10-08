@@ -13,6 +13,8 @@ public:
   const std::filesystem::path &root() const { return m_root; }
   std::filesystem::path systemsDir() const;
   std::filesystem::path componentsDir() const;
+  // Headers du moteur (submodule du projet) : components/, systems/, ...
+  std::filesystem::path engineIncludeDir() const;
   std::filesystem::path componentsCatalog() const;
   std::filesystem::path scenesDataDir() const;
   std::filesystem::path sceneFile(std::string _sceneName) const;

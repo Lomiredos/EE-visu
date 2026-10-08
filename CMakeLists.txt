@@ -126,9 +126,17 @@ target_include_directories(eliott-visu PUBLIC
     extern/fonts/
 )
 
-target_compile_definitions(eliott-visu PRIVATE
-    ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+# Catalogue des composants standard integre au binaire : l'editeur n'a besoin
+# d'aucun fichier a cote de lui (le binaire est telecharge seul par eliott-hub).
+file(READ "${CMAKE_SOURCE_DIR}/assets/Components.json" STANDARD_COMPONENTS_JSON)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/assets/Components.json")
+configure_file(
+    cmake/StandardComponents.hpp.in
+    "${CMAKE_BINARY_DIR}/generated/visu/helpers/StandardComponents.hpp"
+    @ONLY
 )
+target_include_directories(eliott-visu PRIVATE "${CMAKE_BINARY_DIR}/generated")
 
 target_link_libraries(eliott-visu PRIVATE
     ee-core          # coeur moteur : amene aussi glad, glfw, OpenGL, nlohmann_json, eliott-ecs, eliott-input

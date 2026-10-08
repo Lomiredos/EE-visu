@@ -14,7 +14,7 @@ namespace fs = std::filesystem;
 // { "TransformComponent": { "x": 0.0f, ... }, "TagComponent": { "name": "" } }
 std::map<std::string, std::map<std::string, FieldValue>> getComponentDefaults(const fs::path &_catalog);
 
-// Union des composants STANDARD (catalogue moteur, ASSETS_DIR/Components.json)
+// Union des composants STANDARD (catalogue moteur, assets/Components.json integre au binaire)
 // et des composants du PROJET (_projectCatalog). Le standard est prioritaire :
 // en cas de nom commun, la version projet est ignoree et signalee (stderr).
 std::map<std::string, std::map<std::string, FieldValue>> getAllComponentDefaults(const fs::path &_projectCatalog);
