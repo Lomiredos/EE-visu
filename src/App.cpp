@@ -17,7 +17,11 @@
 #include "FontAwesomeSolid900.h" // police compressee, embarquee dans l'exe
 #include "IconsFontAwesome6.h"   // defines ICON_FA_* + ICON_MIN/MAX_FA
 
+#if defined(__linux__)
+#include <nfd.h>
+#else
 #include "tinyfiledialogs.h"
+#endif
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <chrono>
@@ -233,12 +237,23 @@ void App::openModal(std::unique_ptr<Modal> _modal) {
 }
 
 void App::requestOpenProject() {
-
+#if defined(__linux__)
+  // Selecteur natif via le portail XDG (pas de dialogue dans le terminal).
+  if (NFD_Init() != NFD_OKAY)
+    return;
+  nfdu8char_t *selected = nullptr;
+  if (NFD_PickFolderU8(&selected, nullptr) == NFD_OKAY) {
+    openProject(selected);
+    NFD_FreePathU8(selected);
+  }
+  NFD_Quit();
+#else
   const char *selected =
       tinyfd_selectFolderDialog("Choisir l'emplacement du projet", "");
   if (selected != nullptr) {
     openProject(selected);
   }
+#endif
 }
 
 void App::requestChangeProject() {

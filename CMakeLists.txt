@@ -104,6 +104,18 @@ if(WIN32)
     target_link_libraries(tinyfiledialogs PUBLIC comdlg32 ole32)
 endif()
 
+# Sous Linux, tinyfiledialogs retombe sur un dialogue dans le terminal quand
+# zenity/kdialog sont absents : on passe par le portail XDG (selecteur natif).
+if(UNIX AND NOT APPLE)
+    FetchContent_Declare(
+        nfd
+        GIT_REPOSITORY https://github.com/btzy/nativefiledialog-extended.git
+        GIT_TAG v1.2.1
+    )
+    set(NFD_PORTAL ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(nfd)
+endif()
+
 
 add_executable(eliott-visu
     src/main.cpp
@@ -156,6 +168,10 @@ target_link_libraries(eliott-visu PRIVATE
     imguizmo::imguizmo
     tinyfiledialogs
 )
+
+if(UNIX AND NOT APPLE)
+    target_link_libraries(eliott-visu PRIVATE nfd)
+endif()
 
 if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_link_options(eliott-visu PRIVATE -static)
