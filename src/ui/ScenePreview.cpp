@@ -9,7 +9,6 @@
 
 namespace
 {
-    // retourne le vecteur avant en fonction de l'orientation de la cam
     ee::math::Vector3<float> forwardFrom(float _yaw, float _pitch)
     {
         float cp = std::cos(_pitch), sp = std::sin(_pitch);
@@ -42,7 +41,7 @@ unsigned int ScenePreview::render(const SceneInfo &_scene, int _width, int _heig
 
     m_gl.beginScene(cam, _width, _height);
 
-    ee::systems::renderScene(m_gl, _scene);
+    ee::systems::renderScene(m_gl, _scene, _selected);
 
     m_gl.endScene();
     return m_gl.texture();

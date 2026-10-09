@@ -11,68 +11,119 @@ namespace fs = std::filesystem;
 
 // Lit le catalogue depuis un flux ou une chaine (tout ce que json::parse accepte).
 template <typename Source>
-static std::map<std::string, std::map<std::string, FieldValue>> parseComponentDefaults(Source &&_source)
-{
-    std::map<std::string, std::map<std::string, FieldValue>> out;
+static std::map<std::string, std::map<std::string, FieldValue>>
+parseComponentDefaults(Source &&_source) {
+  std::map<std::string, std::map<std::string, FieldValue>> out;
 
-    try
-    {
-        json data = json::parse(std::forward<Source>(_source));
-        for (const auto &comp : data["components"])
-        {
-            std::string cname = comp.value("name", "");
-            if (cname.empty())
-                continue;
+  try {
+    json data = json::parse(std::forward<Source>(_source));
+    for (const auto &comp : data["components"]) {
+      std::string cname = comp.value("name", "");
+      if (cname.empty())
+        continue;
 
-            std::map<std::string, FieldValue> fields;
-            if (comp.contains("fields"))
-                for (const auto &fld : comp["fields"])
-                {
-                    std::string fname = fld.value("name", "");
-                    if (fname.empty())
-                        continue;
+      std::map<std::string, FieldValue> fields;
+      if (comp.contains("fields"))
+        for (const auto &fld : comp["fields"]) {
+          std::string fname = fld.value("name", "");
+          if (fname.empty())
+            continue;
 
-                    const std::string ftype = fld.value("type", "float");
-                    if (ftype == "bool")
-                        fields[fname] = fld.value("default", false);
-                    else if (ftype == "int")
-                        fields[fname] = fld.value("default", 0);
-                    else if (ftype == "string")
-                        fields[fname] = fld.value("default", std::string{});
-                    else
-                        fields[fname] = fld.value("default", 0.0f);
-                }
-            out[cname] = std::move(fields);
+          const std::string ftype = fld.value("type", "float");
+          if (ftype == "bool")
+            fields[fname] = fld.value("default", false);
+          else if (ftype == "int")
+            fields[fname] = fld.value("default", 0);
+          else if (ftype == "string")
+            fields[fname] = fld.value("default", std::string{});
+          else if (ftype == "enum")
+            fields[fname] = fld.value("default", std::string{});
+          else
+            fields[fname] = fld.value("default", 0.0f);
         }
+      out[cname] = std::move(fields);
     }
-    catch (const std::exception &)
-    {
-        // catalogue absent/malforme -> map vide
-    }
+  } catch (const std::exception &) {
+    // catalogue absent/malforme -> map vide
+  }
 
-    return out;
+  return out;
 }
 
-std::map<std::string, std::map<std::string, FieldValue>> getComponentDefaults(const fs::path &_catalog)
-{
-    std::ifstream f(_catalog);
-    if (!f)
-        return {};
+// Lit, depuis un flux ou une chaine, la liste des valeurs possibles
+// ("options") des champs de type "enum" d'un catalogue.
+template <typename Source>
+static std::map<std::string, std::map<std::string, std::vector<std::string>>>
+parseComponentEnumOptions(Source &&_source) {
+  std::map<std::string, std::map<std::string, std::vector<std::string>>> out;
 
-    return parseComponentDefaults(f);
+  try {
+    json data = json::parse(std::forward<Source>(_source));
+    for (const auto &comp : data["components"]) {
+      std::string cname = comp.value("name", "");
+      if (cname.empty())
+        continue;
+
+      std::map<std::string, std::vector<std::string>> fields;
+      if (comp.contains("fields"))
+        for (const auto &fld : comp["fields"]) {
+          std::string fname = fld.value("name", "");
+          if (fname.empty() || fld.value("type", "") != "enum")
+            continue;
+
+          fields[fname] = fld.value("options", std::vector<std::string>{});
+        }
+      if (!fields.empty())
+        out[cname] = std::move(fields);
+    }
+  } catch (const std::exception &) {
+    // catalogue absent/malforme -> map vide
+  }
+
+  return out;
 }
 
-std::map<std::string, std::map<std::string, FieldValue>> getAllComponentDefaults(const fs::path &_projectCatalog)
-{
-    // Catalogue standard integre au binaire (voir cmake/StandardComponents.hpp.in).
-    auto all = parseComponentDefaults(std::string(kStandardComponentsJson));
+std::map<std::string, std::map<std::string, FieldValue>>
+getComponentDefaults(const fs::path &_catalog) {
+  std::ifstream f(_catalog);
+  if (!f)
+    return {};
 
-    auto project = getComponentDefaults(_projectCatalog);
+  return parseComponentDefaults(f);
+}
 
-    all.merge(project);
-    for (const auto &kv : project)
-        std::cerr << "[Components] nom deja defini par le standard, version projet ignoree : "
-                  << kv.first << '\n';
+std::map<std::string, std::map<std::string, FieldValue>>
+getAllComponentDefaults(const fs::path &_projectCatalog) {
+  // Catalogue standard integre au binaire (voir cmake/StandardComponents.hpp.in).
+  auto all = parseComponentDefaults(std::string(kStandardComponentsJson));
 
-    return all;
+  auto project = getComponentDefaults(_projectCatalog);
+
+  all.merge(project);
+  for (const auto &kv : project)
+    std::cerr << "[Components] nom deja defini par le standard, version projet "
+                 "ignoree : "
+              << kv.first << '\n';
+
+  return all;
+}
+
+std::map<std::string, std::map<std::string, std::vector<std::string>>>
+getComponentEnumOptions(const fs::path &_catalog) {
+  std::ifstream f(_catalog);
+  if (!f)
+    return {};
+
+  return parseComponentEnumOptions(f);
+}
+
+std::map<std::string, std::map<std::string, std::vector<std::string>>>
+getAllComponentEnumOptions(const fs::path &_projectCatalog) {
+  // Catalogue standard integre au binaire (voir cmake/StandardComponents.hpp.in).
+  auto all = parseComponentEnumOptions(std::string(kStandardComponentsJson));
+
+  auto project = getComponentEnumOptions(_projectCatalog);
+  all.merge(project);
+
+  return all;
 }

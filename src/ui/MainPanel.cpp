@@ -39,6 +39,19 @@ static float asFloat(const FieldValue &v, float def = 0.0f) {
   return def;
 }
 
+static const std::vector<std::string> *findEnumOptions(
+    const std::map<std::string, std::map<std::string, std::vector<std::string>>>
+        &_opts,
+    const std::string &_comp, const std::string &_field) {
+  auto compIt = _opts.find(_comp);
+  if (compIt == _opts.end())
+    return nullptr;
+  auto fieldIt = compIt->second.find(_field);
+  if (fieldIt == compIt->second.end())
+    return nullptr;
+  return &fieldIt->second;
+}
+
 static void drawHierarchy(App &app, Project *project,
                           MainPanel::DeletionState &del,
                           std::string &sceneStatus) {
@@ -175,6 +188,9 @@ static void drawInspector(App &app, Project *project,
   }
   ImGui::Separator();
 
+  std::map<std::string, std::map<std::string, std::vector<std::string>>>
+      enumOptions = getAllComponentEnumOptions(project->componentsCatalog());
+
   for (int c = 0; c < static_cast<int>(ent.components.size()); ++c) {
     ComponentInstance &ci = ent.components[c];
     ImGui::PushID(c);
@@ -209,8 +225,26 @@ static void drawInspector(App &app, Project *project,
           edited = ImGui::DragInt(lbl, p);
         else if (auto p = std::get_if<bool>(&kv.second))
           edited = ImGui::Checkbox(lbl, p);
-        else if (auto p = std::get_if<std::string>(&kv.second))
-          edited = ImGui::InputText(lbl, p);
+        else if (auto p = std::get_if<std::string>(&kv.second)) {
+          const std::vector<std::string> *opts =
+              findEnumOptions(enumOptions, ci.name, kv.first);
+          if (opts && !opts->empty()) {
+            if (ImGui::BeginCombo(lbl, p->c_str())) {
+              for (const std::string &opt : *opts) {
+                bool isSelected = (*p == opt);
+                if (ImGui::Selectable(opt.c_str(), isSelected)) {
+                  *p = opt;
+                  edited = true;
+                }
+                if (isSelected)
+                  ImGui::SetItemDefaultFocus();
+              }
+              ImGui::EndCombo();
+            }
+          } else {
+            edited = ImGui::InputText(lbl, p);
+          }
+        }
         if (edited)
           app.markSceneDirty();
       }
